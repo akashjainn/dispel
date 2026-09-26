@@ -84,13 +84,16 @@ class Stage {
         ctx.translate(Math.round(((Math.random() * 2 - 1) * a) / step) * step, Math.round(((Math.random() * 2 - 1) * a) / step) * step);
       }
     }
-    this.renderFx(now, 'under');
-    if (this.sweep) this.renderSweep(now);
-    else for (const l of this.layers) l.draw(ctx);
-    this.renderFx(now, 'over');
-    this.renderFx(now, 'glow');
-    this.renderSparks(now);
-    ctx.restore();
+    try {
+      this.renderFx(now, 'under');
+      if (this.sweep) this.renderSweep(now);
+      else for (const l of this.layers) l.draw(ctx);
+      this.renderFx(now, 'over');
+      this.renderFx(now, 'glow');
+      this.renderSparks(now);
+    } finally {
+      ctx.restore(); // a throw must never leave a transform or clip behind for the next frame
+    }
   }
 
   renderFx(now, pass) {
@@ -98,8 +101,19 @@ class Stage {
     if (!list.length) return;
     const { ctx } = this;
     const done = new Set();
+    // One broken effect is dropped (and logged); it can't take the stage down.
     const run = (c) => {
-      for (const f of list) if (f.draw(c, now, this.pixel) === false) done.add(f);
+      for (const f of list) {
+        c.save();
+        try {
+          if (f.draw(c, now, this.pixel) === false) done.add(f);
+        } catch (err) {
+          console.error('[fx]', err);
+          done.add(f);
+        } finally {
+          c.restore();
+        }
+      }
     };
     ctx.save();
     if (pass === 'glow') ctx.globalCompositeOperation = 'lighter';

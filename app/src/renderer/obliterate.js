@@ -279,10 +279,21 @@ function spark(s, x, y, vx, vy) {
 
 // ---------- the frame ----------
 
+// If drawing ever throws, end the spell cleanly rather than leave crystal
+// frozen over the screen.
 function frame(now) {
+  try {
+    draw(now);
+  } catch (err) {
+    console.error('[spell]', err);
+    finish();
+  }
+}
+
+function draw(now) {
   const s = current;
   if (!s) return;
-  const t = now - s.start;
+  const t = Math.max(0, now - s.start); // a frame's timestamp can be a little before start
 
   if (s.shatterAt == null) {
     const asked = s.shatterAsked != null && t >= COVERED + MIN_HOLD;

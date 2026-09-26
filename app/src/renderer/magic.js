@@ -41,7 +41,10 @@ const WAND_STAR = ['#fee761', '#fec841', '#feae34', '#fe9e43'];
 
 // The wand's magic moves in steps, like hand-drawn frames, not smoothly.
 const STEP = 1000 / 12;
-const stepped = (ms) => Math.floor(ms / STEP) * STEP;
+const stepped = (ms) => Math.floor(Math.max(0, ms) / STEP) * STEP;
+// Age of an effect. A frame's timestamp can be a little earlier than the
+// performance.now() an effect was made at, so never go below zero.
+const since = (born, now) => Math.max(0, now - born);
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
@@ -94,7 +97,7 @@ const draw = {
   // The wand's star: long orange arms, a gold middle, a white core, and gold
   // corners once it's big. r is the arm length in stage pixels.
   wandStar(c, pixel, x, y, r) {
-    if (r <= 0) return;
+    if (!(r > 0)) return; // also skips NaN
     const [yellow, amber, , orange] = WAND_STAR;
     const X = pixel ? Math.round(x) : x;
     const Y = pixel ? Math.round(y) : y;
@@ -185,7 +188,7 @@ const fx = {
       cancelled: false,
       draw(_c, now) {
         if (f.cancelled) return false;
-        const age = now - start;
+        const age = since(start, now);
         const t = clamp01((fps ? Math.floor(age / (1000 / fps)) * (1000 / fps) : age) / ms);
         fn(age >= ms ? 1 : t);
         if (age < ms) return true;
@@ -206,7 +209,7 @@ const fx = {
     return stage.addFx({
       pass: 'over',
       draw(c, now, pixel) {
-        const t = (now - born) / life;
+        const t = since(born, now) / life;
         if (t >= 1.18) return false;
         if (t >= 1) {
           // pop: four dots flying out
@@ -237,7 +240,7 @@ const fx = {
     return stage.addFx({
       pass: 'glow',
       draw(c, now, pixel) {
-        const t = (now - born) / ms;
+        const t = since(born, now) / ms;
         if (t >= 1) return false;
         const r = r0 + (r1 - r0) * easeOut(t);
         draw.ring(c, pixel, x, y, r, r * flat, color, 1 - t, w);
@@ -252,7 +255,7 @@ const fx = {
     return stage.addFx({
       pass: 'over',
       draw(c, now, pixel) {
-        const i = Math.floor((now - born) / STEP);
+        const i = Math.floor(since(born, now) / STEP);
         if (i >= sizes.length) return false;
         draw.wandStar(c, pixel, x, y, sizes[i]);
         return true;
@@ -272,7 +275,7 @@ const fx = {
     return stage.addFx({
       pass: 'over',
       draw(c, now, pixel) {
-        const age = stepped(now - born);
+        const age = stepped(since(born, now));
         let alive = false;
         for (const p of specks) {
           if (age >= p.life) continue;
@@ -297,7 +300,7 @@ const fx = {
     const f = stage.addFx({
       pass: 'under',
       draw(c, now, pixel) {
-        const fadeIn = clamp01((now - born) / 400);
+        const fadeIn = clamp01(since(born, now) / 400);
         const fadeOut = stopAt ? 1 - clamp01((now - stopAt) / 400) : 1;
         if (fadeOut <= 0) return false;
         const pulse = 0.75 + 0.25 * Math.sin(now / 260);
@@ -327,7 +330,7 @@ const fx = {
     return stage.addFx({
       pass: 'glow',
       draw(c, now, pixel) {
-        const t = (now - born) / life;
+        const t = since(born, now) / life;
         if (t >= 1) return false;
         const a = Math.sin(t * Math.PI);
         draw.star(c, pixel, x + drift * t, y - 12 * t, a > 0.7 ? 1.5 : 0.8, color, a);
@@ -347,7 +350,7 @@ const fx = {
       pass: 'over',
       draw(c, now, pixel) {
         if (stopped) return false;
-        const step = Math.floor((now - born) / STEP);
+        const step = Math.floor(since(born, now) / STEP);
         if (step !== lastStep) {
           lastStep = step;
           for (let i = 0; i < 2; i++) specks.push({ a: rand(0, Math.PI * 2), d: rand(9, 15), step, color: pick(WAND_STAR) });
@@ -588,7 +591,7 @@ class Presence {
     this.stage.addFx({
       pass: 'over',
       draw: (c, now, pixel) => {
-        const t = stepped(now - born) / 330;
+        const t = stepped(since(born, now)) / 330;
         if (t >= 1) {
           fx.starPop(this.stage, { x: x + 1, y: top, sizes: [2, 4, 3, 2, 1] });
           fx.spray(this.stage, { x: x + 1, y: top, count: 10, speed: [15, 35] });
