@@ -53,4 +53,25 @@ resource "vultr_instance" "api" {
     api_key           = random_password.api_key.result
     deploy_public_key = var.deploy_public_key
   })
+
+  lifecycle {
+    # Editing the startup script must never silently replace the server. Replace it on purpose with
+    # the infra workflow's `replace_server` input.
+    ignore_changes = [user_data]
+  }
+}
+
+# Persistent volume for the model weights. It outlives the server: a replacement re-attaches it.
+resource "vultr_block_storage" "models" {
+  label                = "dispel-models"
+  region               = var.region
+  size_gb              = var.models_volume_gb
+  block_type           = "high_perf"
+  attached_to_instance = vultr_instance.api.id
+  live                 = true
+
+  lifecycle {
+    # To tear everything down after the event, remove this block (or the resource) in a PR first.
+    prevent_destroy = true
+  }
 }

@@ -1,4 +1,6 @@
 #cloud-config
+# First-boot bootstrap only. It is deliberately small and fixed: everything that changes lives in
+# the repo (docker/remote-deploy.sh, docker/compose.prod.yml) and ships via the deploy workflow.
 package_update: true
 packages: [git, curl, ca-certificates]
 write_files:
@@ -8,41 +10,33 @@ write_files:
       API_KEY=${api_key}
       MODEL_DIR=/models
       DEVICE=${device}
-  - path: /opt/dispel/compose.prod.yml
-    content: |
-      services:
-        server:
-          build:
-            context: /opt/dispel/repo
-            dockerfile: docker/Dockerfile.server
-          env_file: /opt/dispel/.env
-          volumes:
-            - /opt/dispel/models:/models:ro
-          restart: unless-stopped
-        caddy:
-          image: caddy:2
-          ports: ["80:80", "443:443"]
-          volumes:
-            - /opt/dispel/Caddyfile:/etc/caddy/Caddyfile:ro
-            - caddy_data:/data
-          restart: unless-stopped
-      volumes:
-        caddy_data:
+      DOMAIN=${domain}
   - path: /opt/dispel/deploy.sh
     permissions: "0755"
     content: |
       #!/bin/sh
+      # Fixed wrapper: update the repo, then hand over to the repo's own deploy script (stdin passes through).
       set -e
       cd /opt/dispel
       [ -d repo ] || git clone ${repo_url} repo
       git -C repo fetch -q origin "${git_ref}"
       git -C repo checkout -q --force FETCH_HEAD
-      IP=$(curl -s http://169.254.169.254/v1/interfaces/0/ipv4/address)
-      HOST="${domain}"
-      [ -n "$HOST" ] || HOST="$(echo $IP | tr . -).sslip.io"
-      printf '%s {\n  reverse_proxy server:8765\n  request_body {\n    max_size 26MB\n  }\n}\n' "$HOST" > Caddyfile
-      docker compose -f compose.prod.yml up -d --build
-      docker image prune -f >/dev/null
+      exec sh repo/docker/remote-deploy.sh
+  - path: /opt/dispel/setup-storage.sh
+    permissions: "0700"
+    content: |
+      #!/bin/sh
+      # Mount the persistent models volume (Vultr block storage) at /opt/dispel/models.
+      # Terraform attaches it after the server boots, so wait for it. A volume that already
+      # has a filesystem (re-attached after a server replacement) is kept as is.
+      dev=/dev/vdb
+      i=0
+      while [ ! -b "$dev" ] && [ "$i" -lt 60 ]; do sleep 5; i=$((i+1)); done
+      if [ ! -b "$dev" ]; then echo "WARNING: models volume did not appear; weights would sit on the local disk"; exit 0; fi
+      blkid "$dev" >/dev/null 2>&1 || mkfs.ext4 -q -L dispel-models "$dev"
+      grep -q dispel-models /etc/fstab || echo 'LABEL=dispel-models /opt/dispel/models ext4 defaults,nofail 0 2' >> /etc/fstab
+      mkdir -p /opt/dispel/models
+      mount /opt/dispel/models
   - path: /opt/dispel/setup-deploy-user.sh
     permissions: "0700"
     content: |
@@ -57,6 +51,7 @@ write_files:
       chown -R deploy:deploy /opt/dispel
 runcmd:
   - mkdir -p /opt/dispel/models
+  - /opt/dispel/setup-storage.sh
   - curl -fsSL https://get.docker.com | sh
-  - /opt/dispel/deploy.sh
+  - /opt/dispel/deploy.sh < /dev/null
   - /opt/dispel/setup-deploy-user.sh

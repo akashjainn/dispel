@@ -54,3 +54,9 @@ variable "deploy_public_key" {
   description = "Public half of the CI deploy key. It can only run /opt/dispel/deploy.sh on the server as user `deploy`."
   type        = string
 }
+
+variable "models_volume_gb" {
+  description = "Size of the persistent NVMe volume for model weights (about $0.10/GB/month). Releases are ~1.2 GB each."
+  type        = number
+  default     = 10
+}

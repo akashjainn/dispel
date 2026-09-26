@@ -45,6 +45,8 @@ jobs:
       - name: Deploy
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
         run: |
           ip=${{ steps.srv.outputs.ip }}
           umask 077
@@ -55,14 +57,25 @@ jobs:
             sleep 5
           done
           [ -s known_hosts ] || { echo "cannot reach $ip:22"; exit 1; }
-          # the server forces this login to run /opt/dispel/deploy.sh
-          ssh -i key -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes deploy@"$ip"
+          # The server forces this login to run /opt/dispel/deploy.sh, which runs docker/remote-deploy.sh from the repo.
+          # Settings (only the keys that are set) go over stdin; the server accepts an allowlist of names.
+          {
+            [ -z "$GEMINI_API_KEY" ] || printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY"
+            [ -z "$GEMINI_MODEL" ] || printf 'GEMINI_MODEL=%s\n' "$GEMINI_MODEL"
+          } | ssh -i key -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes deploy@"$ip"
 
       - name: Health check
         run: |
           host="$(echo ${{ steps.srv.outputs.ip }} | tr . -).sslip.io"
-          for i in $(seq 1 24); do
-            if curl -fsS -m 8 "https://$host/health"; then echo; exit 0; fi
+          for i in $(seq 1 36); do
+            if body=$(curl -fsS -m 8 "https://$host/health"); then
+              echo "$body"
+              # weights present but not loaded (or a load error) must not look like a green deploy
+              if echo "$body" | jq -e '(.load_error != null) or (.weights_found == true and .mock == true)' > /dev/null; then
+                echo "server is up but the model did not load"; exit 1
+              fi
+              exit 0
+            fi
             sleep 5
           done
           echo "health check failed"; exit 1

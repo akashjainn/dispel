@@ -1,0 +1,23 @@
+# Production stack on the Vultr server. Run by docker/remote-deploy.sh from /opt/dispel/repo.
+# .env (written once by Terraform's cloud-init) and settings.env (pushed by CI) live outside the repo.
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    env_file:
+      - path: /opt/dispel/.env
+      - path: /opt/dispel/settings.env
+        required: false
+    volumes:
+      - /opt/dispel/models:/models:ro # the persistent Vultr volume, holds the model weights
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    volumes:
+      - /opt/dispel/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    restart: unless-stopped
+volumes:
+  caddy_data:

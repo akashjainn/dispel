@@ -21,3 +21,8 @@ output "upload_weights" {
   description = "Model weights are not in git; copy them here once"
   value       = "rsync -avP <local MODEL_DIR>/ root@${vultr_instance.api.main_ip}:/opt/dispel/models/"
 }
+
+output "models_volume_id" {
+  description = "Persistent volume holding /opt/dispel/models"
+  value       = vultr_block_storage.models.id
+}
