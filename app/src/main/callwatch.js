@@ -83,6 +83,11 @@ class CallWatch extends EventEmitter {
     this.simulated = false;
     this.apply({ active: false });
   }
+
+  // The simulated call's window was moved.
+  moveSimulated(bounds) {
+    if (this.simulated) this.apply({ ...this.state, bounds });
+  }
 }
 
 module.exports = { CallWatch };

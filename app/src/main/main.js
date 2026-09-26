@@ -9,6 +9,7 @@ const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
 const { CHARACTERS, STYLES, loadPrefs, savePrefs } = require('./prefs');
+const { Obliterator, COVERED_MS } = require('./obliterate');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ASSETS = path.join(ROOT, 'Assets');
@@ -29,7 +30,9 @@ const EDGE = 40; // gap from the screen edge for the default desktop spot
 let tray = null;
 let wizard = null;
 let overlay = null;
+let simWindow = null; // the demo's pretend call window (tray -> "Simulate a call")
 const calls = new CallWatch();
+const obliterator = new Obliterator(); // the hang-up spell's window
 
 // Where the wizard's bottom-right corner sits on the desktop. Dragging moves it.
 let desktopAnchor = null;
@@ -127,7 +130,7 @@ function setWizardLevel(level) {
 
 function setMode(next, payload = {}) {
   mode = next;
-  bubble = ['analyzing', 'result', 'call-alert', 'learn'].includes(next);
+  bubble = ['analyzing', 'result', 'call-alert', 'learn', 'greet'].includes(next);
   if (next === 'hidden') {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
@@ -158,10 +161,22 @@ function showOverlay(bounds) {
 
 // ---------- desktop wizard ----------
 
+// Said on the way out of the hat; folded away after a few seconds.
+const GREETINGS = [
+  'Hi! Drop a voice clip on me and I’ll listen for signs it’s synthetic.',
+  'I’m here. Drop an audio file on me, or click me to choose one.',
+  'Got a voice message that feels off? Drop it on me.',
+];
+let greetTimer = null;
+
 function summon() {
   wizardVisible = true;
   if (callSession) return; // call mode owns the wizard until the call ends
-  setMode('idle', { appear: true });
+  setMode('greet', { appear: true, text: GREETINGS[Math.floor(Math.random() * GREETINGS.length)] });
+  clearTimeout(greetTimer);
+  greetTimer = setTimeout(() => {
+    if (mode === 'greet' && wizardVisible && !callSession) setMode('idle');
+  }, 5500);
 }
 
 function dismiss() {
@@ -293,8 +308,24 @@ function onCallEnded() {
   const s = callSession;
   console.log('[call] ended:', s.app);
   clearTimeout(s.endTimer);
+  clearTimeout(s.fireTimer);
+  clearTimeout(s.hangTimer);
   callSession = null;
   overlay.hide();
+  closeSimWindow();
+  if (s.ending && obliterator.active) {
+    // Let the crystal shatter before the wizard heads back to the desktop.
+    obliterator.shatter();
+    obliterator.whenDone(() => {
+      if (callSession) return; // a new call took over meanwhile
+      setWizardLevel('floating');
+      if (mode === 'call-alert') {
+        wizardVisible = true;
+        setMode('result', { message: 'I hung up the call.' });
+      } else placeWizard();
+    });
+    return;
+  }
   setWizardLevel('floating');
   if (s.ending) {
     wizardVisible = true;
@@ -309,19 +340,49 @@ function onCallEnded() {
   }
 }
 
-// "Yes, hang up": quit the call app. If the call is still going after a few
-// seconds (the app asked to confirm, or refused), say so.
+// "Yes, hang up": the wizard pulls out its wand and casts (wizard.js). When
+// the spell leaves the wand, a bolt hits the call window and turns it to
+// crystal (obliterate.js); once it's covered, quit the call app behind it.
+// If the call is still going after a few seconds (the app asked to confirm,
+// or refused), say so.
 function endCall() {
   const s = callSession;
   if (!s?.alerted || s.ending || !s.canEnd) return;
   s.ending = true;
   setCallPrompt('ending');
-  calls.endCall();
+  // The demo's call window is ours, so the pieces can be made of it.
+  simWindow?.webContents.capturePage().then(
+    (img) => {
+      s.snapshot = img.toDataURL();
+    },
+    () => {},
+  );
+  s.fireTimer = setTimeout(() => castSpell(s, null), 3000); // the spell never left the wand: hang up anyway
+}
+
+// from: the screen point where the spell left the wand, or null to skip the show.
+function castSpell(s, from) {
+  if (callSession !== s || !s.ending || s.cast) return;
+  s.cast = true;
+  clearTimeout(s.fireTimer);
+  if (!from || !s.bounds) {
+    hangUp(s);
+    return;
+  }
+  obliterator.cast({ from, target: s.bounds, style, snapshot: s.snapshot });
+  wizard.moveTop(); // the wizard stays in front of its spell
+  s.hangTimer = setTimeout(() => hangUp(s), COVERED_MS);
+}
+
+function hangUp(s) {
+  if (callSession !== s) return;
   s.endTimer = setTimeout(() => {
     if (callSession !== s) return;
     s.ending = false;
+    obliterator.shatter();
     setCallPrompt('failed');
   }, 8000);
+  calls.endCall();
 }
 
 function onEndResult(ok) {
@@ -329,6 +390,7 @@ function onEndResult(ok) {
   if (!s?.ending || ok) return;
   clearTimeout(s.endTimer);
   s.ending = false;
+  obliterator.shatter();
   setCallPrompt('failed');
 }
 
@@ -340,12 +402,50 @@ function simulateCall() {
   const { workArea } = screen.getPrimaryDisplay();
   const width = Math.round(workArea.width * 0.6);
   const height = Math.round(workArea.height * 0.6);
-  calls.simulate({
+  const bounds = {
     x: workArea.x + Math.round((workArea.width - width) / 2),
     y: workArea.y + Math.round((workArea.height - height) / 2),
     width,
     height,
+  };
+  openSimWindow(bounds);
+  calls.simulate(bounds);
+}
+
+// A pretend call window for the demo, so there's something on screen to
+// watch, flag and hang up. Moving it moves the call; closing it hangs up.
+function openSimWindow(bounds) {
+  closeSimWindow();
+  const win = new BrowserWindow({
+    ...bounds,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: 'Demo call',
+    backgroundColor: '#00000000',
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
+  simWindow = win;
+  win.loadFile(path.join(RENDERER, 'call-sim.html'));
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.once('ready-to-show', () => win.show());
+  win.on('move', () => calls.moveSimulated(win.getBounds()));
+  win.on('closed', () => {
+    if (simWindow !== win) return; // closed by closeSimWindow: the call is already over
+    simWindow = null;
+    if (calls.simulated) calls.endSimulated();
+  });
+}
+
+function closeSimWindow() {
+  const win = simWindow;
+  simWindow = null;
+  if (win && !win.isDestroyed()) win.close();
 }
 
 // ---------- tray ----------
@@ -442,6 +542,15 @@ function registerIpc() {
 
   ipcMain.on('wizard:end-call', () => endCall());
 
+  // The hang-up spell left the wand at (x, y) in the wizard window.
+  ipcMain.on('wizard:blast-fire', (_e, x, y) => {
+    const s = callSession;
+    if (!s || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const b = wizard.getBounds();
+    if (x < 0 || y < 0 || x > b.width || y > b.height) return;
+    castSpell(s, { x: b.x + x, y: b.y + y });
+  });
+
   ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
 
   // Right-click on the wizard (or witch).
@@ -457,7 +566,7 @@ function registerIpc() {
   });
 
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result' || mode === 'learn') {
+    if (mode === 'result' || mode === 'learn' || mode === 'greet') {
       if (callSession) showCallMode();
       else setMode('idle');
     } else if (mode === 'call-alert') {
@@ -496,6 +605,7 @@ app.whenReady().then(() => {
   ({ character, style } = loadPrefs());
   createWizard();
   createOverlay();
+  obliterator.create();
   createTray();
   registerIpc();
 

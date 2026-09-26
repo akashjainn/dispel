@@ -30,6 +30,25 @@ class Stage {
     this.sweep = null; // an in-progress look change, see sweepTo()
     this.sparks = [];
     this.buf = { from: offscreen(), to: offscreen(), glow: offscreen() };
+    // Effects (magic.js): { pass: 'under' | 'over' | 'glow', draw(ctx, now, pixel) -> keep? },
+    // drawn in stage pixels. In the pixel look they're drawn on an 80x120
+    // canvas and scaled up like the art; in the 3D look, smooth at 4x.
+    this.fx = [];
+    this.pixel = true;
+    this.buf.px = Object.assign(document.createElement('canvas'), { width: STAGE_W, height: STAGE_H });
+    this.shakeFx = null; // { amp, start, ms }: the whole stage trembles
+  }
+
+  addFx(fx) {
+    this.fx.push(fx);
+    this.requestDraw();
+    return fx;
+  }
+
+  // Shake the stage for ms, amp stage pixels at the start, fading out.
+  shake(amp, ms) {
+    this.shakeFx = { amp, start: performance.now(), ms };
+    this.requestDraw();
   }
 
   // src is one sheet, or { key: sheet } for a layer that can switch sheets
@@ -47,16 +66,57 @@ class Stage {
     requestAnimationFrame((now) => {
       this.pending = false;
       this.render(now);
-      if (this.sweep || this.sparks.length) this.requestDraw(); // keep effects moving
+      if (this.sweep || this.sparks.length || this.fx.length || this.shakeFx) this.requestDraw(); // keep effects moving
     });
   }
 
   render(now) {
     const { ctx } = this;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.save();
+    const sh = this.shakeFx;
+    if (sh) {
+      const t = (now - sh.start) / sh.ms;
+      if (t >= 1) this.shakeFx = null;
+      else {
+        const a = sh.amp * SCALE * (1 - t);
+        const step = this.pixel ? SCALE : 1; // the pixel look shakes by whole art pixels
+        ctx.translate(Math.round(((Math.random() * 2 - 1) * a) / step) * step, Math.round(((Math.random() * 2 - 1) * a) / step) * step);
+      }
+    }
+    this.renderFx(now, 'under');
     if (this.sweep) this.renderSweep(now);
     else for (const l of this.layers) l.draw(ctx);
+    this.renderFx(now, 'over');
+    this.renderFx(now, 'glow');
     this.renderSparks(now);
+    ctx.restore();
+  }
+
+  renderFx(now, pass) {
+    const list = this.fx.filter((f) => (f.pass || 'over') === pass);
+    if (!list.length) return;
+    const { ctx } = this;
+    const done = new Set();
+    const run = (c) => {
+      for (const f of list) if (f.draw(c, now, this.pixel) === false) done.add(f);
+    };
+    ctx.save();
+    if (pass === 'glow') ctx.globalCompositeOperation = 'lighter';
+    if (this.pixel) {
+      const b = this.buf.px.getContext('2d');
+      b.clearRect(0, 0, STAGE_W, STAGE_H);
+      b.save();
+      run(b);
+      b.restore();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.buf.px, 0, 0, CANVAS_W, CANVAS_H);
+    } else {
+      ctx.scale(SCALE, SCALE);
+      run(ctx);
+    }
+    ctx.restore();
+    if (done.size) this.fx = this.fx.filter((f) => !done.has(f));
   }
 
   // ---------- look change: a glowing line sweeps up from the cauldron ----------
@@ -213,6 +273,9 @@ class SpriteLayer {
     this.frame = null; // [col, row] or null when hidden
     this.timer = null;
     this.loop = null; // the last looping animation, { frames, fps }
+    this.offset = { x: 0, y: 0 }; // stage px: hops, the wand rising out of the pot (magic.js)
+    this.clipBelow = null; // stage y: nothing below it is drawn (the pot's front lip)
+    this.swap = null; // { from, to }: draw row `to` in place of row `from` (blinks, smiles)
   }
 
   // Loads a sheet once (on first use); resolves when it can be drawn.
@@ -241,10 +304,22 @@ class SpriteLayer {
   draw(ctx, key = this.key) {
     const sheet = this.loaded[key] ?? this.loaded[this.prevKey];
     if (!this.frame || !sheet) return;
-    const [col, row] = this.frame;
+    let [col, row] = this.frame;
+    if (this.swap && row === this.swap.from) row = this.swap.to;
     const w = FRAME_W * sheet.scale;
     const h = FRAME_H * sheet.scale;
-    ctx.drawImage(sheet.img, col * w, row * h, w, h, ORIGIN_X, ORIGIN_Y, FRAME_W * SCALE, FRAME_H * SCALE);
+    // Pixel sheets move by whole art pixels so they stay on the grid.
+    const snap = (v) => (sheet.scale === 1 ? Math.round(v) : v) * SCALE;
+    const x = ORIGIN_X + snap(this.offset.x);
+    const y = ORIGIN_Y + snap(this.offset.y);
+    if (this.clipBelow != null) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, CANVAS_W, this.clipBelow * SCALE);
+      ctx.clip();
+    }
+    ctx.drawImage(sheet.img, col * w, row * h, w, h, x, y, FRAME_W * SCALE, FRAME_H * SCALE);
+    if (this.clipBelow != null) ctx.restore();
   }
 
   show(col, row) {

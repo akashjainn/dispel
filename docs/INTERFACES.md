@@ -101,10 +101,18 @@ Renderer → main (each argument is validated in main):
   "Turn into a witch" / "Turn into a wizard".
 - `wizard.dismissBubble()`, `wizard.vanished()`,
   `wizard.drag(phase, x, y)` are UI only.
+- `wizard.blastFire(x, y)`: after "Yes, hang up" the wizard pulls out its wand
+  and casts; this says the spell left the wand at (x, y), in page px. Main
+  checks the point is inside the wizard window, draws the rest in a
+  click-through window over the call (`renderer/obliterate.html`, its own
+  preload `window.spell`), and quits the call app once the window is covered.
+  If it never arrives, main hangs up after 3 s anyway.
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
-  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-alert`.
+  `hidden | vanish | idle | greet | analyzing | result | learn | call-watch | call-alert`.
+  `greet` is `idle` plus a short hello (`text`) when summoned; main folds it
+  away after about 5 s. `call-alert` with `prompt: "ending"` plays the hang-up spell.
   `result` and `call-alert` carry an AnalyzeResponse as `result`.
 - `wizard.onLook(cb)` receives `{ character: "wizard" | "witch", style: "2d" | "3d" }`
   when the user changes the look (right-click or tray menu: "Turn into a witch/wizard",
@@ -124,6 +132,7 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.5 (no bump): IPC only, additive: `wizard.blastFire(x, y)` (hang-up spell) and the `greet` mode. No HTTP change.
 - 0.5 (no bump): IPC only, additive: `wizard.onLook(cb)` and the `character`/`style` page parameters (wizard/witch, 2D/3D). No HTTP change.
 - 0.5: `POST /analyze` accepts `source=call` with no `file` (mocked server only; a real model gives `too_short`). Demo answers are now about 70% likely synthetic, 30% likely real, instead of always the same likely-synthetic example. The app sends call checks to the server too.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).

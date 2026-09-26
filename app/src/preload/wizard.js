@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('wizard', {
   contextMenu: () => ipcRenderer.send('wizard:context-menu'),
   vanished: () => ipcRenderer.send('wizard:vanished'),
   drag: (phase, x, y) => ipcRenderer.send('wizard:drag', phase, x, y),
+  blastFire: (x, y) => ipcRenderer.send('wizard:blast-fire', x, y), // the hang-up spell left the wand at (x, y)
 });
 
 // Dropped files are handled here, not in the page: a File passed through

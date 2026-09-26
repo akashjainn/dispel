@@ -14,7 +14,9 @@ npm start -- --simulate-call   # also runs the call flow with a fake call window
   browser is using the mic, the wizard sits grayed out in the call window's
   bottom-right corner. If the call is flagged, it comes out in full color, the
   call window gets a purple outline, and a speech bubble asks whether to end the
-  call. "Yes, hang up" quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
+  call. "Yes, hang up" makes the wizard pull out its wand and blast the call
+  window: it turns to crystal, the app quits behind it, and it shatters. It
+  quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
   for a browser call it asks you to close the tab instead. Turn call watching
   off with "Watch calls" in the tray menu (right-click the icon).
 - **Learn:** the wizard explains what a deepfake is, common deepfake scams, and
@@ -57,6 +59,9 @@ call, then reports "likely synthetic".
 | `src/main/callwatch.js` | runs the Swift helper and emits call start, move and end |
 | `native/callwatch.swift` | asks Core Audio which apps are using the mic, and finds their window |
 | `src/renderer/` | wizard page (sprites, speech bubble) and the purple overlay |
+| `src/renderer/magic.js` | effects and idle life: blinks, bubbles, wand tricks, hover/drag reactions, the wand half of the hang-up spell |
+| `src/renderer/obliterate.*`, `src/main/obliterate.js` | the hang-up spell's other half: a click-through window where the bolt hits and the call window shatters |
+| `src/renderer/call-sim.*` | the pretend call window for `--simulate-call` / "Simulate a call" |
 | `Assets/` | sprite sheets (80×128 frames, drawn at 2×) |
 
 `npm start` builds `bin/callwatch` with `swiftc`, which needs the Xcode
