@@ -1,6 +1,10 @@
 name: infra
 
 on:
+  # plan-only check on this branch, since workflow_dispatch needs the file on main
+  push:
+    branches: [israel/backend-infra-setup]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
   pull_request:
     paths: ["infra/**", ".github/workflows/infra.yml"]
   workflow_dispatch:
@@ -49,7 +53,7 @@ jobs:
   # Needs secrets, so it is skipped for PRs from forks (GitHub withholds them there).
   plan:
     needs: validate
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
