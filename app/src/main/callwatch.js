@@ -1,5 +1,6 @@
 // Runs bin/callwatch (macOS) and emits call state changes:
-//   'call'   ({ app, bounds })  a call app started using the mic
+//   'call'   ({ app, bounds, prefixes })  a call app started using the mic
+//                               (prefixes: its bundle IDs, for callcapture)
 //   'move'   ({ app, bounds, front })  the call window moved or resized, or
 //                               came to / left the front (front: bool)
 //   'ended'  ()                 no call app is using the mic any more
@@ -19,7 +20,7 @@ class CallWatch extends EventEmitter {
   constructor() {
     super();
     this.proc = null;
-    this.state = { active: false, app: null, bounds: null, canEnd: false };
+    this.state = { active: false, app: null, bounds: null, canEnd: false, prefixes: [] };
     this.simulated = false;
   }
 
@@ -51,7 +52,7 @@ class CallWatch extends EventEmitter {
     this.proc = null;
   }
 
-  apply({ active, app, bounds, canEnd, front = true }) {
+  apply({ active, app, bounds, canEnd, front = true, prefixes = [] }) {
     const prev = this.state;
     this.state = {
       active: Boolean(active),
@@ -59,6 +60,7 @@ class CallWatch extends EventEmitter {
       bounds: bounds || null,
       canEnd: Boolean(canEnd),
       front: Boolean(front),
+      prefixes: Array.isArray(prefixes) ? prefixes : [],
     };
     if (this.state.active && !prev.active) this.emit('call', this.state);
     else if (!this.state.active && prev.active) this.emit('ended');

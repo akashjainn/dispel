@@ -67,3 +67,14 @@
   the button. Nothing goes through our server; the contact's name and number stay in the app's
   local settings file. The text says "likely AI-generated" with the score, never that the caller
   is certainly fake, and marks mock results as a test.
+- **Sat 18:15. Real call checks, on request only (David, app):** calls are no longer scored automatically. When a
+  call starts the wizard offers to listen; only "Listen" (or the tray item, or ⌘⇧L) records, for 12 s. It taps the
+  call app's audio **output** (the other person, not the user's mic) with a Core Audio process tap
+  (`app/native/callcapture.swift`, macOS 14.2+, "System Audio Recording" permission). If that app isn't playing sound
+  itself (e.g. its audio runs in a WebKit process), it taps all system audio except Dispel and logs that. The WAV goes to
+  our server as `source=call` and is deleted from a temp folder right after. A silent capture is reported as "couldn't
+  hear anything", never scored.
+- **Sat 18:15. Demo caller rig (David, `demo/caller/`):** an iPhone web page tells a second "caller" laptop to dial the
+  judge's laptop (Teams/FaceTime links; Discord by hand), play a prepared clip into BlackHole as the call's mic, and
+  optionally switch OBS to a matching deepfake video. Demo prop only; not part of the product or the server. Clips are
+  gitignored. Voices must be consented clones or published dataset clips, not new deepfakes of real public figures.

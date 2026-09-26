@@ -3,11 +3,13 @@
 
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, shell, globalShortcut } = require('electron');
 
 const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
+const { withCallClip, LISTEN_SECONDS } = require('./callcapture');
+const { loadConfig } = require('./config');
 const { loadSettings, saveSettings, notifyInfo } = require('./settings');
 const { sendText, alertText, testText } = require('./notify');
 
@@ -27,6 +29,7 @@ const SIZE = {
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
+const LISTEN_KEY = 'CommandOrControl+Shift+L'; // "listen to this call", only while a call is on
 
 let tray = null;
 let wizard = null;
@@ -36,10 +39,10 @@ const calls = new CallWatch();
 // Where the wizard's bottom-right corner sits on the desktop. Dragging moves it.
 let desktopAnchor = null;
 let wizardVisible = false; // desktop visibility, independent of call mode
-let mode = 'hidden'; // hidden | idle | analyzing | result | call-watch | call-alert
+let mode = 'hidden'; // hidden | idle | analyzing | result | call-watch | call-listen | call-alert
 let bubble = false;
 let busy = false; // a file analysis is running
-let callSession = null; // { id, app, bounds, canEnd, alerted, result, prompt, ending, wasVisible }
+let callSession = null; // { id, app, prefixes, bounds, canEnd, listening, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
 
 // ---------- windows ----------
@@ -137,7 +140,7 @@ function setWizardLevel(level) {
 
 function setMode(next, payload = {}) {
   mode = next;
-  bubble = ['analyzing', 'result', 'call-alert', 'learn'].includes(next);
+  bubble = ['analyzing', 'result', 'call-listen', 'call-alert', 'learn'].includes(next);
   if (next === 'hidden') {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
@@ -353,14 +356,16 @@ function openSettings() {
   });
 }
 
-async function onCallStarted({ app: callApp, bounds, canEnd, front }) {
+function onCallStarted({ app: callApp, bounds, canEnd, front, prefixes }) {
   if (!guardEnabled) return;
-  const session = {
+  callSession = {
     id: Date.now(),
     app: callApp,
+    prefixes,
     bounds,
     canEnd,
     front,
+    listening: false,
     alerted: false,
     verified: false, // voice scored likely real: green ring, wizard stays small and gray
     result: null,
@@ -368,35 +373,64 @@ async function onCallStarted({ app: callApp, bounds, canEnd, front }) {
     ending: false,
     wasVisible: wizardVisible,
   };
-  callSession = session;
   console.log('[call] started:', callApp, bounds);
+  globalShortcut.register(LISTEN_KEY, listenToCall);
   const fileBubbleUp = mode === 'analyzing' || mode === 'result';
   if (fileBubbleUp) {
     setWizardLevel('screen-saver');
     placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
-  } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
+  } else setMode('call-listen', { ...listenPayload(callSession, 'offer'), appear: !wizard.isVisible() });
+}
 
-  // MOCK: no audio is captured yet, so this is the local mock score (see the
-  // tray's "Mock result" switch).
-  const result = await analyzer.analyze('call');
-  if (callSession !== session) return; // call ended or restarted meanwhile
-  if (!result) {
-    // The server couldn't score it (no server set, or it's running the real
-    // model, which needs audio we don't capture yet). No verdict, no ring.
-    console.log('[call] no score from the server (pick a mock under "Results from" to demo)');
+function listenPayload(s, step, extra = {}) {
+  return { app: s.app, step, seconds: LISTEN_SECONDS, ...extra };
+}
+
+// The user asked the wizard to listen (bubble button, tray, or the shortcut).
+// Records a few seconds of the call, sends it to our server, and shows the
+// verdict. Nothing is recorded unless the user asks (AGENTS.md).
+async function listenToCall() {
+  const s = callSession;
+  if (!s || s.listening || s.ending) return;
+  s.listening = true;
+  try {
+    let result;
+    if (!analyzer.usesServer()) {
+      // Local mock ("Results from" in the tray): no recording at all.
+      setMode('call-listen', listenPayload(s, 'listening'));
+      result = await analyzer.analyze('call');
+    } else {
+      if (!loadConfig().serverUrl) await analyzer.analyze('call'); // throws "not connected" before recording
+      setMode('call-listen', listenPayload(s, 'listening'));
+      result = await withCallClip({ app: s.app, prefixes: s.prefixes }, (clip) => {
+        if (callSession === s) setMode('call-listen', listenPayload(s, 'checking'));
+        return analyzer.analyze('call', clip);
+      });
+    }
+    if (callSession !== s) return; // call ended meanwhile
+    logResult({ source: 'call', name: s.app, result });
+    applyCallResult(s, result);
+  } catch (err) {
+    console.error('[listen]', err.message);
+    if (callSession === s) setMode('call-listen', listenPayload(s, 'error', { error: err.userMessage || 'I couldn’t check the call.' }));
+  } finally {
+    s.listening = false;
+  }
+}
+
+function applyCallResult(s, result) {
+  s.result = result;
+  s.alerted = result.overall.probability >= analyzer.SYNTHETIC_AT;
+  s.verified = result.overall.verdict === 'likely_real';
+  if (s.alerted) {
+    s.prompt = null;
+    showOverlay(s.bounds, 'alert');
+    setCallPrompt(s.canEnd ? 'ask' : 'manual'); // takes over any file bubble: it's urgent
     return;
   }
-  logResult({ source: 'call', name: callApp, result });
-  session.result = result;
-  if (result.overall.probability >= analyzer.SYNTHETIC_AT) {
-    session.alerted = true;
-    showOverlay(session.bounds, 'alert');
-    setCallPrompt(session.canEnd ? 'ask' : 'manual'); // takes over any file bubble: it's urgent
-  } else if (result.overall.verdict === 'likely_real') {
-    session.verified = true;
-    showOverlay(session.bounds, 'real');
-  }
-  // inconclusive: no ring; the wizard keeps watching, gray.
+  if (s.verified) showOverlay(s.bounds, 'real');
+  else overlay.hide(); // inconclusive: no ring
+  setMode('call-listen', listenPayload(s, 'result', { result }));
 }
 
 function onCallMoved({ bounds, front }) {
@@ -413,6 +447,7 @@ function onCallEnded() {
   console.log('[call] ended:', s.app);
   clearTimeout(s.endTimer);
   callSession = null;
+  globalShortcut.unregister(LISTEN_KEY);
   overlay.hide();
   setWizardLevel('floating');
   if (s.ending) {
@@ -495,6 +530,12 @@ function trayMenu() {
         if (!guardEnabled && callSession) onCallEnded();
       },
     },
+    {
+      label: `Listen to this call (${LISTEN_SECONDS} s)`,
+      accelerator: LISTEN_KEY,
+      enabled: Boolean(callSession) && !callSession.listening,
+      click: listenToCall,
+    },
     { label: callSession ? 'End simulated call' : 'Simulate a call (demo)', click: simulateCall },
     {
       label: 'Results from',
@@ -541,6 +582,7 @@ function registerIpc() {
   });
 
   ipcMain.on('wizard:end-call', () => endCall());
+  ipcMain.on('wizard:listen', () => listenToCall());
   ipcMain.on('wizard:notify', () => notifyContact());
 
   // Settings IPC answers only the settings window.
@@ -567,7 +609,7 @@ function registerIpc() {
   });
 
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result' || mode === 'learn') {
+    if (mode === 'result' || mode === 'learn' || mode === 'call-listen') {
       if (callSession) showCallMode();
       else setMode('idle');
     } else if (mode === 'call-alert') {
@@ -629,3 +671,4 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', (e) => e.preventDefault()); // lives in the menu bar
 app.on('before-quit', () => calls.stop());
+app.on('will-quit', () => globalShortcut.unregisterAll());

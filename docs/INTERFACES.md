@@ -81,6 +81,10 @@ makes every decision; the renderer only draws the state it's sent.
 
 Renderer → main (each argument is validated in main):
 - `wizard.pickFile()` opens a file dialog, then analyzes the chosen file.
+- `wizard.listen()` answers "Listen" on a call: main records the call app's
+  audio output for 12 s (`app/native/callcapture.swift`, macOS 14.2+), uploads it
+  as `POST /analyze` with `source=call`, and deletes it. Also in the tray menu
+  and on ⌘⇧L during a call. Nothing is recorded without one of these.
 - `wizard.endCall()` answers "Yes, hang up" on a flagged call. Main quits the
   call app politely (like Cmd+Q) through the callwatch helper. Browsers are never
   quit; for them the wizard asks the user to close the call tab.
@@ -98,18 +102,20 @@ Renderer → main (each argument is validated in main):
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
-  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-alert`.
-  `result` and `call-alert` carry an AnalyzeResponse as `result`.
+  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-listen | call-alert`.
+  `result` and `call-alert` carry an AnalyzeResponse as `result`. `call-listen`
+  carries `{ app, step: offer | listening | checking | result | error, seconds, result?, error? }`;
+  a likely-synthetic result goes to `call-alert` instead.
 
-File checks go to the server set in `app/config.local.json` or `DISPEL_SERVER_URL`
-(local mock if neither is set). Not built yet: `captureLast(seconds)`
-(system-audio capture). Until then no call audio is captured, and call-mode
-results are local mocks (see `app/src/main/analyzer.js`).
+File and call checks go to the server set in `app/config.local.json` or
+`DISPEL_SERVER_URL`, unless the tray's "Results from" picks a local mock (then
+nothing is recorded or uploaded; see `app/src/main/analyzer.js`).
 
 The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.4 (no bump, IPC only; the HTTP API is unchanged): `wizard.listen()` and the `call-listen` state. Calls now upload 12 s of captured call audio with `source=call`, only after the user asks.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).
 - 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.
 - 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is the release name (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.

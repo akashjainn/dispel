@@ -5,7 +5,8 @@ A menu-bar wizard that tells you whether a voice is likely synthetic.
 ```
 npm install
 npm start                      # wizard appears; click the menu-bar icon to hide or summon it
-npm start -- --simulate-call   # runs the call flow with a fake call window (real calls are ignored)
+npm start -- --simulate-call   # runs the call flow with a fake call window (real calls are ignored);
+                               # "Listen" then records system audio, so play a clip to test
 ```
 
 - **Check a file:** drop an audio file on the wizard or on the menu-bar icon,
@@ -15,7 +16,13 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
   bottom-right corner. It's click-through, so the call's buttons under it
   still work. The warning bubble (which has buttons) opens in the top-right
   corner instead, away from the End button. The wizard and the colored outline hide while another app
-  is in front and come back when you return to the call. If the voice scores likely real, the call
+  is in front and come back when you return to the call.
+- **Listen to a call:** when a call starts, the wizard asks "Want me to listen
+  to the caller for 12 seconds?" Only **Listen** (or tray → "Listen to this
+  call", or ⌘⇧L during a call) records anything. It records what the call app
+  plays (the other person, not your mic), sends the clip to our server, and
+  deletes it. The first time, macOS asks to allow **System Audio Recording**; if
+  it's denied, the wizard says it couldn't hear anything. If the voice scores likely real, the call
   window gets a steady green outline and the wizard stays small and gray. If
   the call is flagged, it comes out in full color, the
   call window gets a purple outline, and a speech bubble asks whether to end the
@@ -33,6 +40,8 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
   how to protect yourself and your family (safe word, call back, slow down,
   where to report). Open it from the tray menu, by right-clicking the wizard, or
   with "How do these scams work?" after a file check. Text: `src/renderer/lessons.js`.
+- **Demo calls:** `demo/caller/` makes a second laptop call this one and play a
+  prepared deepfake on a tap from an iPhone. See its README.
 - **Log:** every result is appended to
   `~/Library/Application Support/dispel-wizard/results.jsonl` (score, verdict,
   file name or call app; never audio). Tray menu → "Open results log".
@@ -57,12 +66,12 @@ account, nothing personal; delete the file to start over.
 
 Tray menu → **Results from** picks where scores come from:
 - **Server** (default): files are uploaded to the server in
-  `config.local.json`; calls ask it without audio (none is captured yet), so
-  only a server still running demo data can answer them. Until the model
+  `config.local.json`, and so are the 12 s call clips. Until the model
   weights are on the server, its answers are demo data (`mock: true`, about
   70% likely synthetic), and the bubble says so.
 - **Mock: likely real** (2–14%) or **Mock: likely synthetic** (86–98%): local
-  fixed answers for demos, after a 2.5 s (file) or 3.5 s (call) pause. Start
+  fixed answers for demos, after a 2.5 s (file) or 3.5 s (call) pause. Nothing
+  is recorded or uploaded. Start
   with one using `DISPEL_RESULTS=real npm start` or `DISPEL_RESULTS=synthetic`.
 
 ## Layout
@@ -70,13 +79,14 @@ Tray menu → **Results from** picks where scores come from:
 | Path | What |
 |---|---|
 | `src/main/main.js` | tray, windows, the file and call flows |
-| `src/main/analyzer.js` | `POST /analyze` for files when a server is set; local mock otherwise |
+| `src/main/analyzer.js` | `POST /analyze` for files and call clips; local mock when picked in the tray |
 | `src/main/config.js` | server URL and key, and the anonymous install id |
 | `src/main/callwatch.js` | runs the Swift helper and emits call start, move and end |
 | `native/callwatch.swift` | asks Core Audio which apps are using the mic, and finds their window |
+| `src/main/callcapture.js`, `native/callcapture.swift` | on "Listen": records 12 s of the call app's output (Core Audio process tap) to a temp WAV |
 | `src/renderer/` | wizard page (sprites, speech bubble) and the purple overlay |
 | `Assets/` | sprite sheets (80×128 frames, drawn at 2×) |
 
-`npm start` builds `bin/callwatch` with `swiftc`, which needs the Xcode
+`npm start` builds `bin/callwatch` and `bin/callcapture` with `swiftc`, which needs the Xcode
 command line tools. Without it the app still runs, but real calls aren't
 detected; `--simulate-call` still works.

@@ -55,6 +55,7 @@ hearsay/            Python package: the forensic pipeline (the core deliverable)
 server/             FastAPI wrapper around hearsay/ (POST /analyze, GET /health); local 127.0.0.1:8765 or on Vultr
 infra/vultr/        Terraform for the Vultr instance that hosts server/ + inference (see its README)
 app/                Electron wizard client of server/
+demo/caller/        demo prop: iPhone remote that plays prepared caller clips into a real call
 ml/                 training, calibration, ablations, evaluation scripts (no weights)
 docker/             Dockerfiles: the NSA CLI image, and Dockerfile.server + compose.yml for the API
 docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, examples/
@@ -178,6 +179,7 @@ Other rules:
 
 Fill these in when each part is scaffolded. Don't guess them.
 - App dev (David): `cd app && npm install && npm start` (`npm start -- --simulate-call` runs the call flow without a real call). To use the Vultr server: `cp app/config.example.json app/config.local.json` and fill it in
+- Demo caller rig (on the second laptop): `cd demo/caller && npm start`, then open the printed URL on the phone. Setup: `demo/caller/README.md`
 - Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
 - Server tests: `cd server && python -m pytest -q`
 - Server in Docker: `docker compose -f docker/compose.yml up --build`

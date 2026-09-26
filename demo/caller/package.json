@@ -1,0 +1,13 @@
+{
+  "name": "dispel-caller-rig",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo rig: an iPhone remote that plays prepared caller clips into a Teams, FaceTime or Discord call.",
+  "scripts": {
+    "build": "mkdir -p bin && swiftc -O native/playto.swift -o bin/playto",
+    "prestart": "npm run build",
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=22" },
+  "license": "UNLICENSED"
+}
