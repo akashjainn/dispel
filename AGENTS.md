@@ -168,7 +168,7 @@ Other rules:
 ## Commands
 
 Fill these in when each part is scaffolded. Don't guess them.
-- App dev: `TBD`
+- App dev: `David Popescu`
 - Server dev: `TBD`
 - Smoke tests: `TBD`
 - NSA TSV: `TBD` (the header is exactly `filename<TAB>cm-score`; see CHALLENGE.md)
