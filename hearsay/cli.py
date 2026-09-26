@@ -80,7 +80,7 @@ def predict(a):
     from .orchestrator import Pipeline
     d = Path(a.audio_dir)
     names = read_template(a.template) if a.template else sorted(p.name for p in d.iterdir() if p.suffix.lower() in AUDIO)
-    pipe = Pipeline(a.model_dir)
+    pipe = Pipeline(a.model_dir, profile=a.profile)
     scores, failed, t0 = {}, [], time.time()
     for i, n in enumerate(names, 1):
         p = d / n
@@ -107,6 +107,7 @@ def main():
     p.add_argument("-o", "--out", required=True)
     p.add_argument("--template")
     p.add_argument("--model-dir", default=os.getenv("MODEL_DIR", "/models"))
+    p.add_argument("--profile", default="nsa", choices=["nsa", "app"])
     v = sub.add_parser("validate")
     v.add_argument("tsv")
     v.add_argument("--template")

@@ -8,7 +8,7 @@
     "codec": "opus"
   },
   "model": {
-    "name": "v3p",
+    "name": "v4p6/app",
     "release": "mock"
   },
   "overall": {
