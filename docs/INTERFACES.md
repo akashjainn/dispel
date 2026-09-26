@@ -86,11 +86,14 @@ Renderer → main (each argument is validated in main):
   quit; for them the wizard asks the user to close the call tab.
 - Dropped files never cross the bridge: the preload catches the drop and sends
   the file's path to main, which checks the extension, that it's a file, and its size.
-- `wizard.dismissBubble()`, `wizard.vanished()`, `wizard.drag(phase, x, y)` are UI only.
+- `wizard.learn(topic?)` opens Learn mode (`deepfake | scams | protect`, or the
+  topic list). The lesson text lives in `app/src/renderer/lessons.js`.
+- `wizard.contextMenu()`, `wizard.dismissBubble()`, `wizard.vanished()`,
+  `wizard.drag(phase, x, y)` are UI only.
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
-  `hidden | vanish | idle | analyzing | result | call-watch | call-alert`.
+  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-alert`.
   `result` and `call-alert` carry an AnalyzeResponse as `result`.
 
 File checks go to the server set in `app/config.local.json` or `DISPEL_SERVER_URL`
