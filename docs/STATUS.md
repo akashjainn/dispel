@@ -19,4 +19,5 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - none
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat · David · CHALLENGE.md: add Discord post as source [D], correct the slides' 50/50 split to ~70/30, log [D]-vs-[I] conflicts (CSV, 0–100%, manipulation type) under Unknown · david-frontend
 - Fri 20:00 · Akash · repo initialized with docs only ·
