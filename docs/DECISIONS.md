@@ -23,3 +23,11 @@
   Actions. The runner opens a temporary firewall rule for its own IP, logs in as `deploy` (its key
   can only run `/opt/dispel/deploy.sh`), then closes the rule. Adding this replaced the server once
   (new IP, so a new sslip.io URL). `/` serves a "Team Gemini" landing page.
+- **Sat 02:50. Model (supersedes v2e as default):** release `v3p` = v3 (XLS-R 300M fine-tuned on DiffSSD
+  with noise and time-stretch augmentation) fused with prosody features additively
+  (LLR = w * v3 + w' * q + b, q = clipped logit of a prosody-only GBM), which keeps v3's ranking intact on
+  unfamiliar audio. Fit on DiffSSD validation only (`ml/fit_fusion.py`); numbers in
+  `ml/README.md`. v2e is retired: v2 flagged about 90% of real LJ Speech clips as synthetic.
+  The server, the NSA TSV (`python -m hearsay predict`) and the Docker image all use the same `hearsay/` code.
+- **Sat 02:50. Verdict band:** placeholder 0.25 / 0.75 on the posterior stays until calibration on
+  new voices is fixed (teammate check: 18 of 20 consented ElevenLabs clones scored "likely real", although the ranking was right, AUC 0.98).

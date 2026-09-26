@@ -1,0 +1,9 @@
+# Model runtime for the real pipeline (hearsay/). Pinned to the versions the release was fit with on the
+# training PC. torch comes from the CPU wheel index in docker/Dockerfile.server (not listed here).
+transformers==5.17.0
+numpy==2.4.6
+soundfile==0.14.0
+soxr>=0.5,<1
+praat-parselmouth==0.4.7
+scikit-learn==1.9.1
+joblib>=1.4
