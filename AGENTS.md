@@ -28,8 +28,8 @@ It must never hold up the pipeline, the Docker image, or the TSV.
   - a channel/quality note and a transcript
   - a plain-language "what this can't tell you" section
 
-Tracks: Oracle of the Deep (ML/AI + visualization) and the NSA HEARSAY sponsor
-challenge.
+Tracks: A Marina's Mission (Social Good: healthcare, sustainability; presented
+by Aramco) and the NSA HEARSAY sponsor challenge.
 
 ### Timeline (Eastern time)
 - Fri 8:00 PM: hacking starts
