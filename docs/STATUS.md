@@ -26,6 +26,8 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 16:45 · David · app: during calls the wizard sits outside the call window (no longer covers End), wizard + ring hide when the call app isn't in front; calls already running at launch now enter call mode; --simulate-call ignores real calls · david-frontend
+- Sat 16:20 · David · app: local mock now says likely real by default (tray "Mock result" switch or DISPEL_MOCK_VERDICT=synthetic flips it); calls that score likely real get a steady green ring and a small gray wizard · david-frontend
 - Sat 12:15 · David · app: Learn mode (the wizard teaches what deepfakes are, common scams, and how to protect family), right-click menu on the wizard · david-frontend
 - Sat 11:40 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept Israel's 0.4 server, re-applied FUSION_PROFILE; hearsay/ml from the branch) · PR #8
 - Sat 10:10 · Israel · server replaced via infra `replace_server` (#6 bootstrap + models volume; new URL `https://66-42-83-221.sslip.io`); `/health` no longer counts `lost+found` on the empty volume as weights (it failed the deploy health check) · israel/weights-found-fix (#9)

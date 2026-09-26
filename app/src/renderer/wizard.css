@@ -47,9 +47,12 @@ body {
 
 /* ---------- call mode: grayed out in the call window's corner until flagged ---------- */
 
+/* Smaller and gray while watching a call (window is SIZE.small in main.js). */
 body.watching .stage {
   filter: grayscale(1) brightness(1.1);
   opacity: 0.4;
+  transform: scale(0.75);
+  transform-origin: bottom right;
 }
 body.call .stage {
   cursor: default;

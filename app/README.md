@@ -5,14 +5,19 @@ A menu-bar wizard that tells you whether a voice is likely synthetic.
 ```
 npm install
 npm start                      # wizard appears; click the menu-bar icon to hide or summon it
-npm start -- --simulate-call   # also runs the call flow with a fake call window
+npm start -- --simulate-call   # runs the call flow with a fake call window (real calls are ignored)
 ```
 
 - **Check a file:** drop an audio file on the wizard or on the menu-bar icon,
   or click the wizard to pick a file. The wizard answers with a verdict and a score.
 - **Calls (macOS 14.2+):** when Zoom, FaceTime, Teams, Discord, Slack or a
-  browser is using the mic, the wizard sits grayed out in the call window's
-  bottom-right corner. If the call is flagged, it comes out in full color, the
+  browser is using the mic, the wizard sits small and grayed out just outside
+  the call window (right side, else left; inside the top-right corner and
+  click-through only when the call fills the screen), so it never covers the
+  call's End button. The wizard and the colored outline hide while another app
+  is in front and come back when you return to the call. If the voice scores likely real, the call
+  window gets a steady green outline and the wizard stays small and gray. If
+  the call is flagged, it comes out in full color, the
   call window gets a purple outline, and a speech bubble asks whether to end the
   call. "Yes, hang up" quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
   for a browser call it asks you to close the tab instead. Turn call watching
@@ -45,7 +50,9 @@ account, nothing personal; delete the file to start over.
 
 With no server set, file checks use the local mock, and **calls always do**
 (no call audio is captured yet): it waits 2.5 s for a file or 3.5 s for a
-call, then reports "likely synthetic".
+call, then reports **"likely real"** (2–14%). To demo the deepfake flow, pick
+tray menu → "Mock result (no model)" → "Likely synthetic" (86–98%), or start
+with `DISPEL_MOCK_VERDICT=synthetic npm start`.
 
 ## Layout
 

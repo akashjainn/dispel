@@ -20,6 +20,7 @@ const MAX_FILE_BYTES = 500 * 1024 * 1024;
 // the speech bubble sits to its left.
 const SIZE = {
   plain: { width: 160, height: 240 },
+  small: { width: 120, height: 180 }, // gray "watching" wizard in a call's corner (0.75 scale in wizard.css)
   bubble: { width: 400, height: 290 }, // taller: the call alert has yes/no buttons
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
@@ -91,19 +92,39 @@ function defaultAnchor() {
   return { right: workArea.x + workArea.width - EDGE, bottom: workArea.y + workArea.height - EDGE };
 }
 
-function callAnchor(bounds) {
-  if (!bounds) return defaultAnchor();
-  return { right: bounds.x + bounds.width - CALL_INSET, bottom: bounds.y + bounds.height - CALL_INSET };
+// Where the wizard goes during a call. Outside the call window, so it never
+// covers the call's own controls (Zoom and FaceTime put End at the bottom):
+// just past the right edge, else the left edge, bottoms aligned. If neither
+// side has room (maximized or full screen), inside the top-right corner, and
+// the gray watching wizard is click-through there (see placeWizard).
+const CALL_GAP = 28; // clear of the colored ring (it reaches 24px out, see OVERLAY_PAD)
+const TITLE_BAR = 32;
+function callPlacement(bounds, size) {
+  if (!bounds) return { anchor: defaultAnchor(), inside: false };
+  const wa = screen.getDisplayMatching(bounds).workArea;
+  const right = bounds.x + bounds.width;
+  const bottom = Math.min(bounds.y + bounds.height, wa.y + wa.height);
+  const fitBottom = Math.max(bottom, wa.y + size.height); // keep the top on screen
+  if (wa.x + wa.width - right >= size.width + CALL_GAP) {
+    return { anchor: { right: right + CALL_GAP + size.width, bottom: fitBottom }, inside: false };
+  }
+  if (bounds.x - wa.x >= size.width + CALL_GAP) {
+    return { anchor: { right: bounds.x - CALL_GAP, bottom: fitBottom }, inside: false };
+  }
+  const top = Math.max(bounds.y, wa.y) + TITLE_BAR;
+  return { anchor: { right: Math.min(right, wa.x + wa.width) - CALL_INSET, bottom: top + size.height }, inside: true };
 }
 
-function currentAnchor() {
-  return callSession ? callAnchor(callSession.bounds) : desktopAnchor;
-}
+
 
 // Resize the wizard window around its bottom-right anchor.
 function placeWizard() {
-  const size = bubble ? SIZE.bubble : SIZE.plain;
-  const a = currentAnchor();
+  const size = bubble ? SIZE.bubble : mode === 'call-watch' ? SIZE.small : SIZE.plain;
+  let a = desktopAnchor;
+  let inside = false;
+  if (callSession) ({ anchor: a, inside } = callPlacement(callSession.bounds, size));
+  // Over the call itself, the passive gray wizard lets clicks through to the call.
+  wizard.setIgnoreMouseEvents(inside && mode === 'call-watch');
   wizard.setBounds({
     x: Math.round(a.right - size.width),
     y: Math.round(a.bottom - size.height),
@@ -132,14 +153,49 @@ function setMode(next, payload = {}) {
   setWizardLevel(callSession ? 'screen-saver' : 'floating');
   placeWizard();
   wizard.webContents.send('wizard:state', { mode: next, ...payload });
-  if (!wizard.isVisible()) wizard.showInactive();
+  if (!wizard.isVisible() && !hiddenForFocus()) wizard.showInactive();
+}
+
+// During a call, the wizard and the ring only show while the call app is in
+// front. Switch to another app and they get out of the way.
+function hiddenForFocus() {
+  return Boolean(callSession) && !callSession.front;
+}
+
+function applyCallFocus() {
+  if (hiddenForFocus()) {
+    wizard.hide();
+    overlay.hide();
+    return;
+  }
+  if (mode !== 'hidden' && !wizard.isVisible()) wizard.showInactive();
+  if (callSession && (callSession.alerted || callSession.verified)) showOverlay(callSession.bounds);
 }
 
 const OVERLAY_PAD = 24; // must match the ring's inset + border in overlay.html
 
-// Purple ring drawn just outside the call window, never over its content.
-function showOverlay(bounds) {
-  if (!bounds) {
+// Ring drawn just outside the call window, never over its content.
+// tone: "alert" (purple, pulsing) or "real" (green, steady). The green look is
+// injected CSS, so the overlay page itself never runs scripts.
+const REAL_RING_CSS = `.glow {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 14px 3px rgba(34, 197, 94, 0.75) !important;
+  animation: none !important;
+  opacity: 0.85;
+}`;
+let overlayTone = 'alert';
+let overlayCssKey = null;
+async function setOverlayTone(tone) {
+  if (tone === overlayTone) return;
+  overlayTone = tone;
+  const wc = overlay.webContents;
+  if (overlayCssKey) await wc.removeInsertedCSS(overlayCssKey).catch(() => {});
+  overlayCssKey = tone === 'real' ? await wc.insertCSS(REAL_RING_CSS).catch(() => null) : null;
+}
+
+function showOverlay(bounds, tone) {
+  if (tone) setOverlayTone(tone);
+  if (!bounds || hiddenForFocus()) {
     overlay.hide(); // minimized or on another Space
     return;
   }
@@ -244,14 +300,16 @@ function setCallPrompt(prompt) {
   setMode('call-alert', { app: s.app, result: s.result, prompt });
 }
 
-async function onCallStarted({ app: callApp, bounds, canEnd }) {
+async function onCallStarted({ app: callApp, bounds, canEnd, front }) {
   if (!guardEnabled) return;
   const session = {
     id: Date.now(),
     app: callApp,
     bounds,
     canEnd,
+    front,
     alerted: false,
+    verified: false, // voice scored likely real: green ring, wizard stays small and gray
     result: null,
     prompt: null,
     ending: false,
@@ -265,24 +323,29 @@ async function onCallStarted({ app: callApp, bounds, canEnd }) {
     placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
   } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
 
-  // MOCK: no audio is captured yet. We wait out the mock latency and use the
-  // mock score, which always lands above the alert threshold.
+  // MOCK: no audio is captured yet, so this is the local mock score (see the
+  // tray's "Mock result" switch).
   const result = await analyzer.analyze('call');
   if (callSession !== session) return; // call ended or restarted meanwhile
   logResult({ source: 'call', name: callApp, result });
+  session.result = result;
   if (result.overall.probability >= analyzer.SYNTHETIC_AT) {
     session.alerted = true;
-    session.result = result;
-    showOverlay(session.bounds);
+    showOverlay(session.bounds, 'alert');
     setCallPrompt(session.canEnd ? 'ask' : 'manual'); // takes over any file bubble: it's urgent
+  } else if (result.overall.verdict === 'likely_real') {
+    session.verified = true;
+    showOverlay(session.bounds, 'real');
   }
+  // inconclusive: no ring; the wizard keeps watching, gray.
 }
 
-function onCallMoved({ bounds }) {
+function onCallMoved({ bounds, front }) {
   if (!callSession) return;
   callSession.bounds = bounds;
+  callSession.front = front;
   placeWizard();
-  if (callSession.alerted) showOverlay(bounds);
+  applyCallFocus();
 }
 
 function onCallEnded() {
@@ -373,6 +436,15 @@ function trayMenu() {
       },
     },
     { label: callSession ? 'End simulated call' : 'Simulate a call (demo)', click: simulateCall },
+    {
+      label: 'Mock result (no model)',
+      submenu: ['real', 'synthetic'].map((v) => ({
+        label: v === 'real' ? 'Likely real' : 'Likely synthetic',
+        type: 'radio',
+        checked: analyzer.getMockVerdict() === v,
+        click: () => analyzer.setMockVerdict(v),
+      })),
+    },
     { type: 'separator' },
     { label: 'Open results log', click: () => shell.showItemInFolder(logPath()) },
     { label: 'Quit', role: 'quit' },
@@ -464,13 +536,18 @@ app.whenReady().then(() => {
   calls.on('move', onCallMoved);
   calls.on('ended', onCallEnded);
   calls.on('end-result', onEndResult);
-  calls.start();
 
-  // Start with the wizard out so people see it on first launch.
+  // `npm start -- --simulate-call` runs the call flow with a fake call and
+  // ignores real ones, so a demo can't be hijacked by an actual call.
+  const simulate = process.argv.includes('--simulate-call');
+
+  // Start with the wizard out so people see it on first launch. Call watching
+  // starts only once the page can draw, so a call that's already running when
+  // the app opens still gets the call-mode wizard.
   wizard.webContents.once('did-finish-load', () => {
     summon();
-    // `npm start -- --simulate-call` runs the call flow without a real call.
-    if (process.argv.includes('--simulate-call')) setTimeout(simulateCall, 1500);
+    if (simulate) setTimeout(simulateCall, 1500);
+    else calls.start();
   });
 });
 

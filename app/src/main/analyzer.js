@@ -3,8 +3,10 @@
 // File checks go to the server (POST /analyze) when a server URL is set in
 // config.js; while the server has no model it answers with demo data
 // (`mock: true`). Without a server URL, and for calls (no audio is captured
-// yet), the result is a local MOCK that flags the audio as likely synthetic
-// after a short delay that stands in for inference time.
+// yet), the result is a local MOCK after a short delay that stands in for
+// inference time. The mock says "likely real" by default; the tray's
+// "Mock result" switch (or DISPEL_MOCK_VERDICT=synthetic) flips it to
+// "likely synthetic" to demo the deepfake flow.
 //
 // Errors thrown here carry `userMessage`, which the wizard shows as-is.
 
@@ -29,6 +31,12 @@ function verdictFor(probability) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+let mockVerdict = process.env.DISPEL_MOCK_VERDICT === 'synthetic' ? 'synthetic' : 'real';
+const getMockVerdict = () => mockVerdict;
+function setMockVerdict(v) {
+  if (v === 'real' || v === 'synthetic') mockVerdict = v;
+}
+
 function userError(userMessage, detail) {
   const err = new Error(detail || userMessage);
   err.userMessage = userMessage;
@@ -39,7 +47,9 @@ async function mockAnalyze(source) {
   const started = Date.now();
   await sleep(MOCK_LATENCY_MS[source]);
 
-  const probability = Math.round((0.86 + Math.random() * 0.12) * 1000) / 1000;
+  // real: 2-14%, synthetic: 86-98%, so the verdict is never borderline.
+  const base = mockVerdict === 'synthetic' ? 0.86 : 0.02;
+  const probability = Math.round((base + Math.random() * 0.12) * 1000) / 1000;
   const llr = Math.log(probability / (1 - probability));
   return {
     version: '0.4',
@@ -107,4 +117,4 @@ async function analyze(source, filePath) {
   return mockAnalyze(source);
 }
 
-module.exports = { analyze, verdictFor, SYNTHETIC_AT };
+module.exports = { analyze, verdictFor, SYNTHETIC_AT, getMockVerdict, setMockVerdict };
