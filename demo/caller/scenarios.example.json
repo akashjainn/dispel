@@ -1,7 +1,11 @@
 {
   "audioDevice": "BlackHole 2ch",
   "monitor": true,
-  "obs": { "url": "ws://127.0.0.1:4455", "password": "", "idleScene": "Idle" },
+  "obs": {
+    "url": "ws://127.0.0.1:4455",
+    "password": "",
+    "idleScene": "Idle"
+  },
   "platforms": {
     "teams": {
       "label": "Teams",
@@ -28,7 +32,11 @@
       "label": "Your boss",
       "subtitle": "cloned voice (consented teammate)",
       "audio": "clips/boss.wav",
-      "video": { "scene": "Boss", "input": "Boss video" }
+      "video": {
+        "file": "clips/boss.mov",
+        "scene": "Boss",
+        "input": "Boss video"
+      }
     },
     {
       "id": "public-figure",

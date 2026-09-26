@@ -26,6 +26,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 19:00 · David (Claude) · demo/caller: video callers (`npm run setup-obs` builds OBS Idle + per-caller scenes and starts Virtual Camera); boss video wired in locally (clips gitignored); fixed obs.js crashing the rig when OBS is closed · david-frontend
 - Sat 18:45 · David (Claude) · app: one-time "Check my calls automatically?" opt-in (Settings checkbox too); after yes, each call is checked as it starts. AGENTS.md capture rule reworded · david-frontend
 - Sat 18:15 · David (Claude) · app: calls are checked on request ("Listen" bubble, tray, ⌘⇧L): 12 s Core Audio tap of the call app → POST /analyze source=call, temp WAV deleted after. demo/caller/: iPhone remote that dials Teams/FaceTime, plays clips into BlackHole, switches OBS video scenes · david-frontend
 - Sat 17:30 · David · app: tray "Results from": Server (default; files and calls per INTERFACES 0.5) or a fixed local mock (likely real / likely synthetic). Server reachable but still mock (weights_found: false) · david-frontend

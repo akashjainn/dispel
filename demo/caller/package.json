@@ -6,8 +6,12 @@
   "scripts": {
     "build": "mkdir -p bin && swiftc -O native/playto.swift -o bin/playto",
     "prestart": "npm run build",
-    "start": "node server.js"
+    "start": "node server.js",
+    "setup-obs": "node setup-obs.js",
+    "setup-obs": "node setup-obs.js"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "license": "UNLICENSED"
 }

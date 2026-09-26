@@ -16,15 +16,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn, execFile } = require('node:child_process');
 const { obsRequests } = require('./obs');
+const { ROOT, FILE: CONFIG_FILE, config, videoOf } = require('./scenarios');
 
-const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8790;
 const PLAYER = path.join(ROOT, 'bin', 'playto');
-const CONFIG_FILE = fs.existsSync(path.join(ROOT, 'scenarios.local.json'))
-  ? path.join(ROOT, 'scenarios.local.json')
-  : path.join(ROOT, 'scenarios.example.json');
-
-const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
 const platforms = config.platforms || {};
 const callers = new Map((config.callers || []).map((c) => [c.id, c]));
 
@@ -67,7 +62,7 @@ async function setScene(scene, input) {
 }
 
 function idleScene() {
-  setScene(config.obs?.idleScene).catch((err) => console.warn('[obs]', err.message));
+  setScene(config.obs && (config.obs.idleScene || 'Idle')).catch((err) => console.warn('[obs]', err.message));
 }
 
 function stop() {
@@ -83,7 +78,8 @@ async function play(callerId, video) {
   const file = path.resolve(ROOT, c.audio);
   if (!fs.existsSync(file)) throw new Error(`missing clip: ${c.audio}`);
   stop();
-  if (video && c.video) await setScene(c.video.scene, c.video.input); // video first, so lips and voice start together
+  const v = videoOf(c);
+  if (video && v) await setScene(v.scene, v.input); // video first, so lips and voice start together
 
   const args = ['--device', config.audioDevice || 'BlackHole 2ch'];
   if (config.monitor) args.push('--monitor');

@@ -20,7 +20,9 @@ laptop and sends nothing anywhere except into the call you placed.
 ## Setup (caller laptop, macOS, Node 22+)
 
 1. Install [BlackHole 2ch](https://github.com/ExistentialAudio/BlackHole)
-   (`brew install blackhole-2ch`).
+   (`brew install blackhole-2ch`), then reboot (or `sudo killall coreaudiod`)
+   so macOS loads it. If a tap on the phone says "no output device named
+   BlackHole 2ch", this step didn't take.
 2. In Teams, FaceTime and Discord on the caller laptop, set the **microphone to
    "BlackHole 2ch"**. For video, install OBS, set its scenes up (below), click
    **Start Virtual Camera**, and set each app's camera to **OBS Virtual Camera**.
@@ -42,13 +44,29 @@ blocks device-to-device traffic, so put the laptop on the **iPhone's hotspot**.
 
 ## Video (optional)
 
-In OBS (28+), turn on Tools → WebSocket Server Settings (port 4455, and copy the
-password into `obs.password`). Make an `Idle` scene (a still image or "camera
-off" card) and one scene per video caller with a **Media Source** playing that
-caller's deepfake video, muted, with "Restart playback when source becomes
-active" on. Set `video.scene` and `video.input` (the media source's name) for
-that caller. Tap a caller with **Video** checked and the scene switches and
-restarts in sync with the audio, then goes back to `Idle` when the clip ends.
+The caller's video goes to the other side through **OBS Virtual Camera**; its
+voice goes through BlackHole, started at the same moment.
+
+1. Give the caller a `video` in `scenarios.local.json`, and extract its audio
+   track as the caller's `audio` (the rig plays the voice separately):
+   ```
+   afconvert -f WAVE -d LEI16@48000 -c 1 clips/boss.mov clips/boss.wav
+   ```
+   ```json
+   "video": { "file": "clips/boss.mov", "scene": "Boss", "input": "Boss video" }
+   ```
+   `scene` and `input` are optional (default: the caller's label).
+2. Open OBS (28+) → Tools → **WebSocket Server Settings** → Enable, port 4455.
+   Leave `obs.password` out of the config: the rig reads OBS's own password
+   from this Mac's OBS settings.
+3. `npm run setup-obs`. It creates an `Idle` scene ("Camera off" card) and one
+   scene per video caller (the video muted, fitted to the canvas, restarting
+   each time it's shown), then starts the Virtual Camera. Safe to re-run.
+4. In FaceTime / Teams / Discord on the caller laptop, set the camera to
+   **OBS Virtual Camera**.
+
+On the phone, tick **Video** and tap the caller: OBS switches to their scene and
+restarts the video as the voice starts, then goes back to `Idle` when it ends.
 
 Our detector is audio-only. The video is there so the judges can see what a
 convincing call looks like; don't claim Dispel checks the video.
