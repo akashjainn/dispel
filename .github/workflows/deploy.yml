@@ -6,7 +6,7 @@ name: deploy
 on:
   push:
     branches: [main]
-    paths: ["server/**", "docker/**", "docs/examples/**", ".github/workflows/deploy.yml"]
+    paths: ["server/**", "hearsay/**", "docker/**", "docs/examples/**", ".github/workflows/deploy.yml"]
   workflow_dispatch:
 
 concurrency:

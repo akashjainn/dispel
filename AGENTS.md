@@ -87,18 +87,18 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
 
 ## Model facts (don't contradict these in code, UI copy, or the pitch)
 
-- The default model is **v2e**: an average of two calibrated XLS-R 300M
-  detectors (v0 and v2). Each takes 16 kHz mono audio, up to 3 non-overlapping
-  4 s windows per segment.
-- **Weights are not in git** (about 1.2 GB each; non-commercial license).
+- The default model is **v3p**: an XLS-R 300M detector fine-tuned on DiffSSD with noise and
+  time-stretch augmentation (v3), fused additively with prosody (pitch) features
+  (`hearsay/fusion.py`). Input is 16 kHz mono; the detector scores up to 3 non-overlapping 4 s windows.
+  v2e is retired (see DECISIONS.md).
+- **Weights are not in git** (about 1.2 GB; non-commercial license).
   Code finds them through the `MODEL_DIR` env var; ask Akash for a copy.
   Release hashes live in `docs/DECISIONS.md`.
 - License: MLAAD is CC BY-NC, so the model and demo are **non-commercial**.
 - Known weaknesses (the report and pitch must say these plainly):
-  - Some real voices get over-flagged. On one real politician's phone-quality
-    audio, about 1 in 3 clips come out "likely synthetic" at a 50% prior.
-  - The model has not been validated on current commercial generators such as
-    ElevenLabs yet. Check `docs/STATUS.md` for the latest numbers.
+  - Heavy phase-vocoder time-stretching still hurts (minDCF 0.245 fused vs 0.006 on clean audio).
+  - Calibration on new voices is off: in a teammate check, 18 of 20 consented ElevenLabs clones
+    came out "likely real" (the ranking was right, AUC 0.98; the absolute scores are not). Numbers and runs are in `ml/README.md`.
 
 ## UI and copy rules
 - Never say "fake" or "real" as a certainty. Use "likely synthetic",
@@ -180,5 +180,5 @@ Fill these in when each part is scaffolded. Don't guess them.
 - Server in Docker: `docker compose -f docker/compose.yml up --build`
 - Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Server replacement/infra changes: Actions -> infra -> Run workflow. Details in `infra/vultr/README.md`.
 - Smoke tests: `TBD`
-- NSA TSV: `TBD` (the header is exactly `filename<TAB>cm-score`; see CHALLENGE.md)
-- Docker: `TBD`
+- NSA TSV: `MODEL_DIR=<release> python -m hearsay predict <test_dir> -o <Team>_predictions.tsv --template <NSA template>.tsv` (writes and validates; header `filename<TAB>cm-score`). Check only: `python -m hearsay validate <tsv> --template <template>`
+- Docker (NSA): same image as the server; see the header of `docker/Dockerfile.server` for the `docker run` line.

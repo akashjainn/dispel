@@ -42,3 +42,9 @@ def test_auth(monkeypatch: pytest.MonkeyPatch):
     ok = client.post("/analyze", files=FILE, headers={"Authorization": "Bearer secret"})
     assert ok.status_code == 200
     assert client.get("/health").status_code == 200  # health stays public
+
+
+def test_health_reports_mock_without_weights(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("MODEL_DIR", raising=False)
+    body = client.get("/health").json()
+    assert body["mock"] is True and body["model"] == "mock"
