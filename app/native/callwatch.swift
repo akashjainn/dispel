@@ -15,6 +15,10 @@
 //         the app using the mic right now. The name matters: apps like
 //         Discord let go of the mic for moments mid-call, and the app shouldn't
 //         get a pass for that. Only apps in callApps with quitBundles can be quit.
+//         If the app refuses, or is still running 2.5 s later, it gets
+//         SIGTERM (what a normal quit sends; Electron apps close cleanly).
+//   focus [name]  brings the call app to the front (the hang-up spell is aimed
+//         at its window, which may be behind others).
 //         Replies {"event":"end","ok":bool}. Browsers are never quit, since
 //         that would close every tab; for them canEnd is false.
 // Coordinates are global points with the origin at the top-left of the main
@@ -126,17 +130,47 @@ func snapshot() -> [String: Any] {
     return out
 }
 
-/// Politely quits the named call app (or the one using the mic). Returns false
-/// if there's nothing we may quit.
-func endCall(named name: String?) -> Bool {
+func log(_ msg: String) {
+    FileHandle.standardError.write(("[callwatch] " + msg + "\n").data(using: .utf8)!)
+}
+
+/// The call app's own running app(s) (not its helper processes), for a name
+/// this helper reported, or the app using the mic.
+func quittableApps(named name: String?) -> (CallApp, [NSRunningApplication])? {
     guard let app = callApps.first(where: { $0.name == name }) ?? currentCall()?.0,
-          !app.quitBundles.isEmpty else { return false }
-    var ok = false
-    for running in NSWorkspace.shared.runningApplications {
-        let id = running.bundleIdentifier ?? ""
-        if app.quitBundles.contains(where: { id.hasPrefix($0) }) { ok = running.terminate() || ok }
+          !app.quitBundles.isEmpty else { return nil }
+    let running = NSWorkspace.shared.runningApplications.filter { r in
+        let id = r.bundleIdentifier ?? ""
+        return r.activationPolicy == .regular && app.quitBundles.contains(where: { id.hasPrefix($0) })
     }
-    return ok
+    return (app, running)
+}
+
+/// Quits the named call app (or the one using the mic): politely first, then
+/// SIGTERM if it refuses or is still up 2.5 s later. Returns false if there's
+/// nothing we may quit.
+func endCall(named name: String?) -> Bool {
+    guard let (app, running) = quittableApps(named: name), !running.isEmpty else {
+        log("end \(name ?? "-"): nothing to quit")
+        return false
+    }
+    for r in running {
+        let polite = r.terminate()
+        log("end \(app.name): \(r.bundleIdentifier ?? "?") pid \(r.processIdentifier) terminate -> \(polite)")
+        if !polite { log("end \(app.name): SIGTERM -> \(kill(r.processIdentifier, SIGTERM) == 0)") }
+        let pid = r.processIdentifier
+        Thread {
+            Thread.sleep(forTimeInterval: 2.5)
+            if kill(pid, 0) == 0 { log("end \(app.name): still running, SIGTERM -> \(kill(pid, SIGTERM) == 0)") }
+        }.start()
+    }
+    return true
+}
+
+/// Brings the named call app to the front.
+func focusCall(named name: String?) {
+    guard let (app, running) = quittableApps(named: name) else { return }
+    for r in running { log("focus \(app.name): activate -> \(r.activate(options: [.activateAllWindows]))") }
 }
 
 let output = DispatchQueue(label: "callwatch.output")
@@ -155,6 +189,9 @@ Thread {
         if cmd == "end" || cmd.hasPrefix("end ") {
             let name = cmd.dropFirst(3).trimmingCharacters(in: .whitespaces)
             _ = emit(["event": "end", "ok": endCall(named: name.isEmpty ? nil : name)])
+        } else if cmd == "focus" || cmd.hasPrefix("focus ") {
+            let name = cmd.dropFirst(5).trimmingCharacters(in: .whitespaces)
+            focusCall(named: name.isEmpty ? nil : name)
         }
     }
     exit(0) // Electron went away

@@ -348,6 +348,7 @@ function endCall() {
   if (!s?.alerted || s.ending || !s.canEnd) return;
   s.ending = true;
   setCallPrompt('ending');
+  calls.focus(s.app); // the spell hits the call window, so bring it out from behind others
   s.fireTimer = setTimeout(() => castSpell(s, null), 3000); // the spell never left the wand: hang up anyway
 }
 
@@ -377,6 +378,7 @@ function hangUp(s) {
 }
 
 function onEndResult(ok) {
+  console.log('[call] end result:', ok);
   const s = callSession;
   if (!s?.ending || ok) return;
   clearTimeout(s.endTimer);

@@ -108,7 +108,9 @@ Renderer → main (each argument is validated in main):
   preload `window.spell`), and quits the call app once the window is covered.
   If it never arrives, main hangs up after 3 s anyway. The callwatch helper's
   stdin command is now `end <app>` (the `app` it reported), so an app that
-  let go of the mic for a moment still gets quit.
+  let go of the mic for a moment still gets quit; if the app refuses or is
+  still up 2.5 s later it gets SIGTERM. New `focus <app>` brings the call app
+  to the front when "Yes, hang up" is clicked, so the spell hits a visible window.
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of

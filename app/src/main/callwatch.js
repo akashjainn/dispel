@@ -75,6 +75,13 @@ class CallWatch extends EventEmitter {
     }
   }
 
+  // Bring the call app to the front (its window may be behind others).
+  focus(appName) {
+    if (this.simulated || !this.proc) return;
+    const name = String(appName || '').replace(/[\r\n]/g, '');
+    this.proc.stdin.write(name ? `focus ${name}\n` : 'focus\n');
+  }
+
   // Demo helper: pretend a call is running in `bounds` until endSimulated().
   simulate(bounds) {
     this.simulated = true;
