@@ -25,76 +25,20 @@ body {
   display: none !important;
 }
 
-/* ---------- stage (bottom-right of the window) ---------- */
+/* ---------- stage (bottom-right of the window) ----------
+   One 80x120 canvas (see sprites.js) drawn at exactly 2x, so every sprite
+   pixel is a crisp 2x2 block. If you change the size, change SIZE in main.js
+   and .bubble's right offset to match. */
 
 .stage {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 180px;
-  height: 200px;
-  transition: filter 0.4s, opacity 0.4s;
-}
-
-.wizard,
-.pot,
-.wand,
-.poof {
-  position: absolute;
+  width: 160px;
+  height: 240px;
   image-rendering: pixelated;
-  background-repeat: no-repeat;
-}
-
-/* The wizard stands in the cauldron: he's drawn over the pot but clipped along
-   the front of the rim, so the pot's front wall hides his lower half. The
-   clip follows the bottom edge of the liquid in pot-sheet.png. The pot and
-   wizard frames are aligned so the wizard's frame sits 26 px (1x) lower. */
-.wizard {
-  z-index: 2;
-  left: 10px;
-  top: 8px;
-  width: 160px;
-  height: 152px; /* frame rows 8..84 */
-  background-image: url('../../Assets/wizard-sprites.png');
-  background-size: 800px 1280px;
-  clip-path: polygon(
-    0 0, 160px 0, 160px 98px, 144px 98px, 132px 106px, 120px 112px, 108px 114px,
-    92px 118px, 68px 118px, 52px 116px, 40px 110px, 24px 102px, 16px 98px, 0 98px
-  );
   cursor: grab;
-}
-
-.pot {
-  z-index: 1;
-  left: 10px;
-  top: 36px;
-  width: 160px;
-  height: 160px; /* frame rows 48..128 */
-  background-image: url('../../Assets/pot-sheet.png');
-  background-size: 640px 256px;
-  cursor: pointer;
-}
-
-.wand {
-  z-index: 3;
-  left: -58px;
-  top: 30px;
-  width: 160px;
-  height: 160px; /* frame rows 0..80 */
-  background-image: url('../../Assets/wand-hand.png');
-  background-size: 640px 768px;
-  pointer-events: none;
-}
-
-.poof {
-  z-index: 4;
-  left: 10px;
-  top: -8px;
-  width: 160px;
-  height: 256px;
-  background-image: url('../../Assets/wizard-poof.png');
-  background-size: 960px 512px;
-  pointer-events: none;
+  transition: filter 0.4s, opacity 0.4s;
 }
 
 .drop-hover .stage {
@@ -107,7 +51,7 @@ body.watching .stage {
   filter: grayscale(1) brightness(1.1);
   opacity: 0.4;
 }
-body.call .wizard {
+body.call .stage {
   cursor: default;
 }
 
@@ -116,8 +60,8 @@ body.call .wizard {
 .bubble {
   position: absolute;
   z-index: 10; /* in front of the wand's sparkles */
-  top: 6px;
-  right: 168px;
+  top: 24px;
+  right: 138px; /* tail reaches the wizard's side (he starts ~26px into the stage) */
   width: 252px;
   box-sizing: border-box;
   padding: 12px 14px 10px;

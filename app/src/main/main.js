@@ -16,11 +16,11 @@ const RENDERER = path.join(ROOT, 'src', 'renderer');
 const AUDIO_EXTS = new Set(['.wav', '.mp3', '.m4a', '.mp4', '.aac', '.ogg', '.oga', '.opus', '.flac', '.webm', '.mov']);
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
-// Window sizes (px). The wizard in its cauldron is drawn at 2x; the speech
-// bubble sits to its left.
+// Window sizes (px). The wizard stage is 160x240 (the 80x120 canvas at 2x);
+// the speech bubble sits to its left.
 const SIZE = {
-  plain: { width: 180, height: 200 },
-  bubble: { width: 440, height: 250 },
+  plain: { width: 160, height: 240 },
+  bubble: { width: 400, height: 240 },
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot

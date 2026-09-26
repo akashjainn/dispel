@@ -2,10 +2,12 @@
 
 const $ = (id) => document.getElementById(id);
 
-const wizardLayer = new SpriteLayer($('wizard'), 16);
-const potLayer = new SpriteLayer($('pot'), 96);
-const wandLayer = new SpriteLayer($('wand'));
-const poofLayer = new SpriteLayer($('poof'));
+// Back to front, as in focus-wizard: pot, wizard, wand, poof.
+const stage = new Stage($('stage'));
+const potLayer = stage.add('../../Assets/pot-sheet.png', emptyPot);
+const wizardLayer = stage.add('../../Assets/wizard-sprites.png', noStewShadow);
+const wandLayer = stage.add('../../Assets/wand-hand.png');
+const poofLayer = stage.add('../../Assets/wizard-poof.png');
 
 const COPY = {
   likely_synthetic: { title: 'This voice is likely synthetic.', label: 'chance it’s synthetic' },
@@ -22,14 +24,12 @@ function setBody(...classes) {
 }
 
 function poof() {
-  $('poof').hidden = false;
-  poofLayer.play(POOF.burst, 16, { once: true, onDone: () => ($('poof').hidden = true) });
+  poofLayer.play(POOF.burst, 16, { once: true, onDone: () => poofLayer.hide() });
 }
 
 function wand(on) {
-  $('wand').hidden = !on;
   if (on) wandLayer.play(WAND.cast, 8);
-  else wandLayer.stop();
+  else wandLayer.hide();
 }
 
 function renderDigits(percent, verdict) {
@@ -97,7 +97,7 @@ const states = {
     wand(true);
     potLayer.play(POT.bubble, 12);
     wizardLayer.play(WIZARD.focus, 8);
-    showBubble({ title: `Hmm… let me listen to “${name}”.`, note: 'Stirring the cauldron…' });
+    showBubble({ title: `Hmm… let me listen to “${name}”.`, note: 'Consulting the cauldron…' });
   },
 
   result({ result, error }) {
@@ -119,7 +119,7 @@ const states = {
     setBody('call', 'watching');
     hideBubble();
     wand(false);
-    potLayer.play(POT.bubble, 4);
+    potLayer.show(0, 0); // still, not bubbling, while watching a call
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
@@ -132,7 +132,6 @@ const states = {
     }
     poof();
     wand(true);
-    potLayer.play(POT.bubble, 10);
     setTimeout(() => mode === 'call-alert' && wand(false), 2500);
     wizardLayer.play(WIZARD.idle, 8);
     showBubble({
@@ -152,9 +151,8 @@ window.wizard.onState((state) => {
 // ---------- input: click to choose a file, drag to move, drop to analyze ----------
 
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
-$('pot').addEventListener('click', () => window.wizard.pickFile());
 
-const wiz = $('wizard');
+const wiz = $('stage');
 let press = null;
 
 wiz.addEventListener('pointerdown', (e) => {
