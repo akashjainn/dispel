@@ -11,7 +11,12 @@ ip=$(curl -fsS -m 5 http://169.254.169.254/v1/interfaces/0/ipv4/address)
 host=${domain:-$(echo "$ip" | tr . -).sslip.io}
 printf '%s {\n  reverse_proxy server:8765\n  request_body {\n    max_size 26MB\n  }\n}\n' "$host" > Caddyfile
 
-mountpoint -q "$DIR/models" || echo "WARNING: $DIR/models is not the persistent volume; weights placed here will NOT survive a server replacement"
+# Refuse to run without the persistent volume: weights copied to the local disk would be wiped by a server replacement.
+# The containers already running are left alone. Fix: check the volume is attached, then Actions -> infra -> replace_server.
+if ! mountpoint -q "$DIR/models"; then
+  echo "ERROR: $DIR/models is not the persistent models volume; not deploying" >&2
+  exit 1
+fi
 
 docker compose -p dispel -f repo/docker/compose.prod.yml up -d --build
 docker image prune -f > /dev/null

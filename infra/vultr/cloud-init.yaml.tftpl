@@ -28,15 +28,17 @@ write_files:
       #!/bin/sh
       # Mount the persistent models volume (Vultr block storage) at /opt/dispel/models.
       # Terraform attaches it after the server boots, so wait for it. A volume that already
-      # has a filesystem (re-attached after a server replacement) is kept as is.
+      # has a filesystem (re-attached after a server replacement) is kept as is, and grown
+      # if models_volume_gb was raised. Without the volume, docker/remote-deploy.sh refuses to deploy.
       dev=/dev/vdb
       i=0
       while [ ! -b "$dev" ] && [ "$i" -lt 60 ]; do sleep 5; i=$((i+1)); done
-      if [ ! -b "$dev" ]; then echo "WARNING: models volume did not appear; weights would sit on the local disk"; exit 0; fi
+      if [ ! -b "$dev" ]; then echo "ERROR: models volume did not appear; the deploy will refuse to run" >&2; exit 1; fi
       blkid "$dev" >/dev/null 2>&1 || mkfs.ext4 -q -L dispel-models "$dev"
       grep -q dispel-models /etc/fstab || echo 'LABEL=dispel-models /opt/dispel/models ext4 defaults,nofail 0 2' >> /etc/fstab
       mkdir -p /opt/dispel/models
       mount /opt/dispel/models
+      resize2fs "$dev" # no-op unless the volume was enlarged
   - path: /opt/dispel/setup-deploy-user.sh
     permissions: "0700"
     content: |

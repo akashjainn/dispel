@@ -36,6 +36,8 @@ Cloud-init takes a few minutes; then `curl $(terraform output -raw base_url)/hea
 | infra apply with `replace_server` ticked | **wiped** (new IP, new URL) | kept, re-attached and re-mounted |
 | Any other plan that destroys the server | apply refuses | apply refuses |
 | Anything that destroys the volume | apply refuses (and `prevent_destroy`) | n/a |
+| Raising `models_volume_gb` | kept | enlarged; the filesystem grows on the next `replace_server` (or `resize2fs /dev/vdb` as root now) |
+| Volume not attached | deploys refuse to run (`docker/remote-deploy.sh`), so weights never land on the wipeable disk | n/a |
 Keep a copy of the weights off the server anyway (Akash has the source of truth).
 
 ## How the server is driven from the repo

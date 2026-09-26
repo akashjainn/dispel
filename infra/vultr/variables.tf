@@ -56,7 +56,7 @@ variable "deploy_public_key" {
 }
 
 variable "models_volume_gb" {
-  description = "Size of the persistent NVMe volume for model weights (about $0.10/GB/month). Releases are ~1.2 GB each."
+  description = "Size of the persistent NVMe volume for model weights (about $0.10/GB/month). Releases are ~1.2 GB each. Can only grow; the filesystem follows on the next replace_server, or run `resize2fs /dev/vdb` as root."
   type        = number
   default     = 10
 }
