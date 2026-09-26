@@ -1,7 +1,8 @@
 """FastAPI wrapper around the hearsay pipeline. Contract: docs/INTERFACES.md.
 
 If MODEL_DIR contains hearsay.json the real pipeline is loaded at startup (mock: false).
-Otherwise the canned example is returned (mock: true), so the app and tests work without weights."""
+Otherwise the canned example is returned (mock: true), so the app and tests work without weights.
+Requests that carry X-Dispel-Client (an anonymous per-install UUID) are recorded in store.py for GET /history."""
 import hmac
 import json
 import logging
@@ -12,13 +13,17 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 
-VERSION = "0.3"
-ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".flac"}
+from . import store
+
+VERSION = "0.4"
+# Anything ffmpeg can decode; video containers keep only their audio track.
+ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".oga", ".opus", ".flac", ".aac", ".mp4", ".mov"}
+SOURCES = {"file", "call"}
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 25 * 1024 * 1024))
 EXAMPLE = Path(__file__).resolve().parents[2] / "docs" / "examples" / "analyze_response.example.json"
 log = logging.getLogger("dispel")
@@ -85,6 +90,16 @@ def require_key(authorization: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
+def client_id(x_dispel_client: str | None = Header(default=None)) -> str | None:
+    """The app's anonymous per-install id. Optional on /analyze (curl, tests); must be a UUID if sent."""
+    if x_dispel_client is None:
+        return None
+    try:
+        return str(uuid.UUID(x_dispel_client))
+    except ValueError:
+        raise ApiError(400, "bad_request", "X-Dispel-Client must be a UUID")
+
+
 def _weights_present() -> bool:
     d = _model_dir()  # lost+found etc.: a freshly formatted volume is not "weights found"
     return bool(d) and d.is_dir() and any(p.name != "lost+found" and not p.name.startswith(".") for p in d.iterdir())
@@ -118,10 +133,30 @@ def _run(data: bytes, prior: float):
 
 
 @app.post("/analyze", dependencies=[Depends(require_key)])
-async def analyze(file: UploadFile = File(...), prior: float = Form(0.5)):
+async def analyze(file: UploadFile = File(...), prior: float = Form(0.5), source: str = Form("file"),
+                  client: str | None = Depends(client_id)):
+    resp = await _analyze(file, prior, source)
+    if client:
+        try:
+            await run_in_threadpool(store.record, client, source, resp)
+        except Exception:  # history is a convenience; never fail a check over it
+            log.exception("could not record check")
+    return resp
+
+
+@app.get("/history", dependencies=[Depends(require_key)])
+async def history(limit: int = Query(20, ge=1, le=100), client: str | None = Depends(client_id)):
+    if not client:
+        raise ApiError(400, "bad_request", "X-Dispel-Client header is required")
+    return {"client_id": client, "items": await run_in_threadpool(store.history, client, limit)}
+
+
+async def _analyze(file: UploadFile, prior: float, source: str) -> dict:
     t0 = time.perf_counter()
     if not 0.0 <= prior <= 1.0:
         raise ApiError(400, "bad_request", "prior must be between 0 and 1")
+    if source not in SOURCES:
+        raise ApiError(400, "bad_request", "source must be file or call")
     if Path(file.filename or "").suffix.lower() not in ALLOWED_EXT:
         raise ApiError(400, "decode_failed", "unsupported file type")
     data = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -136,9 +171,10 @@ async def analyze(file: UploadFile = File(...), prior: float = Form(0.5)):
         resp["clip_id"] = str(uuid.uuid4())
         resp["overall"]["prior"] = prior
         resp["timing_ms"] = int((time.perf_counter() - t0) * 1000)
+        resp["mock"] = True
         return resp
     try:
-        return await run_in_threadpool(_run, data, prior)  # audio lives only in memory / a deleted temp file
+        resp = await run_in_threadpool(_run, data, prior)  # audio lives only in memory / a deleted temp file
     except ValueError as e:
         code = str(e).split(":")[0]
         if code == "too_short":
@@ -149,3 +185,5 @@ async def analyze(file: UploadFile = File(...), prior: float = Form(0.5)):
     except Exception:
         log.exception("analyze failed")
         raise ApiError(500, "internal", "analysis failed")
+    resp["mock"] = False
+    return resp

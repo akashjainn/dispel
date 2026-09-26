@@ -56,3 +56,41 @@ def test_empty_volume_is_not_weights(tmp_path, monkeypatch: pytest.MonkeyPatch):
     assert client.get("/health").json()["weights_found"] is False
     (tmp_path / "v3p").mkdir()
     assert client.get("/health").json()["weights_found"] is True
+
+
+CLIENT = "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b"
+
+
+@pytest.fixture
+def data_dir(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_mock_response_is_flagged():
+    assert client.post("/analyze", files=FILE).json()["mock"] is True
+
+
+def test_history_is_per_client(data_dir):
+    h = {"X-Dispel-Client": CLIENT}
+    clip = client.post("/analyze", files=FILE, data={"source": "call"}, headers=h).json()["clip_id"]
+    items = client.get("/history", headers=h).json()["items"]
+    assert [(i["clip_id"], i["source"], i["mock"]) for i in items] == [(clip, "call", True)]
+    other = {"X-Dispel-Client": "00000000-0000-4000-8000-000000000000"}
+    assert client.get("/history", headers=other).json()["items"] == []
+
+
+def test_analyze_without_client_is_not_recorded(data_dir):
+    assert client.post("/analyze", files=FILE).status_code == 200
+    assert client.get("/history", headers={"X-Dispel-Client": CLIENT}).json()["items"] == []
+
+
+def test_bad_client_id_and_source(data_dir):
+    bad = {"X-Dispel-Client": "not-a-uuid"}
+    assert client.post("/analyze", files=FILE, headers=bad).json()["error"] == "bad_request"
+    assert client.post("/analyze", files=FILE, data={"source": "mic"}).status_code == 400
+    assert client.get("/history").status_code == 400
+
+
+def test_video_container_accepted():
+    assert client.post("/analyze", files={"file": ("call.mp4", b"xxxx", "video/mp4")}).status_code == 200

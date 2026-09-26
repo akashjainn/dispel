@@ -43,3 +43,10 @@
   live in the repo (`docker/remote-deploy.sh`, `docker/compose.prod.yml`) and ship on merge. Model weights sit on a separate
   NVMe block-storage volume (`/opt/dispel/models`, 10 GB) that survives server replacement. `ignore_changes = [user_data]`, a
   `replace_server` gate in the infra workflow and `prevent_destroy` on the volume stop accidental wipes. (israel/repo-driven-server)
+- **Sat. App ↔ server link and anonymous install id (proposed by Israel, needs David's and Akash's OK):** the app sends
+  file checks to the configured server (Vultr) instead of its local mock; call checks stay local mocks until audio
+  capture exists. There is no registration: on first launch the app makes a random UUID (`<userData>/client-id`) and sends
+  it as `X-Dispel-Client`. The server records one row per check in SQLite (`/opt/dispel/data`, survives redeploys but not a
+  server replacement) with result metadata only: never audio, file names or transcripts. `GET /history` returns an
+  install's own rows. The id groups checks; it is not authentication. The app's bearer key ships inside the app, so treat
+  it as a speed bump, not a secret. (israel/app-server-link)
