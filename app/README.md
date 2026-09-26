@@ -21,16 +21,35 @@ npm start -- --simulate-call   # also runs the call flow with a fake call window
   `~/Library/Application Support/dispel-wizard/results.jsonl` (score, verdict,
   file name or call app; never audio). Tray menu → "Open results log".
 
-**Right now every score is a mock** (`src/main/analyzer.js`): it waits 2.5 s
-for a file or 3.5 s for a call, then reports "likely synthetic". No audio is
-captured or read.
+## Connecting to the server
+
+File checks go to our server (Vultr) once it's configured:
+
+```
+cp config.example.json config.local.json   # gitignored
+# set serverUrl (the latest infra run summary shows it) and apiKey (ask Israel)
+```
+
+`DISPEL_SERVER_URL` and `DISPEL_API_KEY` override the file. The file is
+uploaded only when you drop or pick it. The server answers with demo data
+(`mock: true`, shown in the bubble) until the model weights are on it.
+
+On first launch the app makes an anonymous install id (a random UUID in
+`~/Library/Application Support/dispel-wizard/client-id`) and sends it with each
+check, so the server can keep this install's history (`GET /history`). No
+account, nothing personal; delete the file to start over.
+
+With no server set, file checks use the local mock, and **calls always do**
+(no call audio is captured yet): it waits 2.5 s for a file or 3.5 s for a
+call, then reports "likely synthetic".
 
 ## Layout
 
 | Path | What |
 |---|---|
 | `src/main/main.js` | tray, windows, the file and call flows |
-| `src/main/analyzer.js` | mock AnalyzeResponse; swap it for `POST /analyze` |
+| `src/main/analyzer.js` | `POST /analyze` for files when a server is set; local mock otherwise |
+| `src/main/config.js` | server URL and key, and the anonymous install id |
 | `src/main/callwatch.js` | runs the Swift helper and emits call start, move and end |
 | `native/callwatch.swift` | asks Core Audio which apps are using the mic, and finds their window |
 | `src/renderer/` | wizard page (sprites, speech bubble) and the purple overlay |

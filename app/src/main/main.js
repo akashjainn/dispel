@@ -180,13 +180,13 @@ async function analyzeFile(filePath) {
   wizardVisible = true;
   setMode('analyzing', { name });
   try {
-    const result = await analyzer.analyze('file');
+    const result = await analyzer.analyze('file', filePath);
     logResult({ source: 'file', name, result });
     if (callAlertShowing()) return; // don't cover a deepfake warning; it's in the log
     setMode('result', { name, result });
   } catch (err) {
     console.error('[analyze]', err);
-    if (!callAlertShowing()) setMode('result', { name, error: 'I couldn’t read that file.' });
+    if (!callAlertShowing()) setMode('result', { name, error: err.userMessage || 'I couldn’t read that file.' });
   } finally {
     busy = false;
   }

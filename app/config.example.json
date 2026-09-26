@@ -1,0 +1,4 @@
+{
+  "serverUrl": "https://<ip-with-dashes>.sslip.io",
+  "apiKey": "<API_KEY from Israel>"
+}
