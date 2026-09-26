@@ -17,6 +17,12 @@ gradient-boosted model for each feature analyzer. Weights come from a class-bala
 LLR is prior-free, and each analyzer's contribution to a clip is exactly `w_i * t_i` (shown in the app's report).
 
 ## Fitting a release
+Reported fusion numbers are out-of-fold with nested cross-fitting (`fit_fusion.py`): the per-analyzer models that
+feed the fusion are refit inside each outer training fold, so no outer-test label reaches them. The earlier
+single-level scheme let those labels in indirectly; re-running with nesting changed the headline numbers by at most
+0.003 (v4p6: ffmpeg 0.007 -> 0.006, librosa 0.088 -> 0.089). The per-feature ablation tables below used the
+single-level scheme.
+
 ```sh
 python ml/fit_fusion.py --v3-scores data/checkpoints/v3_diffssd/val_scores_ep2.npz \
   --lfcc-scores results/lfcc_val_scores.npz --prosody results/pitch_v3val.csv --feats results/feats3_v3val.csv \
@@ -81,7 +87,8 @@ Best checkpoint = its first epoch (DiffSSD val selection 0.0203 vs v3 0.0208). O
 | teammates' consented clones (20) | 30% -> 65% | 10% -> 35% |
 | teammates' real recordings flagged (20) | 0% -> 0% | 0% -> 0% |
 
-Release `v4p6` (v4 + the same five other analyzers) fused on validation: clean 0.000, ffmpeg 0.007, librosa 0.088.
+Release `v4p6` (v4 + the same five other analyzers) fused on validation: clean 0.000, ffmpeg 0.006, librosa 0.089
+(nested cross-fitting, see below; 0.007 / 0.088 with the earlier single-level scheme).
 NSA's 242 real LJ clips: median LLR -18.4, max -8.8, none above 0. Teammate AUC: `nsa` profile 0.948, `app` 1.000.
 
 DiffSSD official test split (41,113 clips, clean, v3, scored once): minDCF 0.0068; the three generators absent from

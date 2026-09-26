@@ -84,12 +84,27 @@ def main():
             q[te] = qlogit(gbm().fit(X[tr], y[tr]).predict_proba(X[te])[:, 1])
         Q[name] = q
     names = ["dl_detector", "lfcc"] + [n for n, _ in GROUPS]
-    Z = np.c_[df.v3.values, df.lfcc.values, *[Q[n] for n, _ in GROUPS]]
+    Z = np.c_[tuple([df.v3.values, df.lfcc.values] + [Q[n] for n, _ in GROUPS])]
 
     def oof(cols):
+        """Out-of-fold fused LLR with nested cross-fitting: for each outer fold, the analyzer GBMs that produce the
+        fusion model's training features are fit by inner folds inside the outer training set only, and the outer
+        test fold is scored by analyzers fit on the whole outer training set. No label from the outer test fold
+        reaches either the analyzer terms or the fusion weights."""
+        raw = [df.v3.values, df.lfcc.values]
         o = np.zeros(len(df))
         for tr, te in folds:
-            o[te] = lr_fit(Z[tr][:, cols], y[tr]).decision_function(Z[te][:, cols])
+            tr_terms, te_terms = [r[tr] for r in raw], [r[te] for r in raw]
+            inner = list(StratifiedGroupKFold(5, shuffle=True, random_state=1).split(tr, y[tr], g[tr]))
+            for name, fs in GROUPS:
+                X = df[fs].values.astype(float)
+                qi = np.zeros(len(tr))
+                for itr, ite in inner:
+                    qi[ite] = qlogit(gbm().fit(X[tr][itr], y[tr][itr]).predict_proba(X[tr][ite])[:, 1])
+                tr_terms.append(qi)
+                te_terms.append(qlogit(gbm().fit(X[tr], y[tr]).predict_proba(X[te])[:, 1]))
+            Ztr, Zte = np.c_[tuple(tr_terms)][:, cols], np.c_[tuple(te_terms)][:, cols]
+            o[te] = lr_fit(Ztr, y[tr]).decision_function(Zte)
         return o
 
     systems = {"v3 alone": df.v3.values, "v3 + prosody + lfcc": oof([0, 1, 2]), "all 6 (shipped)": oof(list(range(6)))}

@@ -7,7 +7,7 @@ Additive by design (fit by ml/fit_fusion.py on DiffSSD validation, out-of-fold):
       clipped to +-qclip: prosody, spectral, voice, rhythm
 Weights come from a class-balanced logistic regression, so LLR is prior-free. Additive keeps each term's ranking
 intact on unfamiliar audio (a single GBM over everything flattened the neural score: teammate check AUC 0.985 -> 0.742),
-and it makes the report exact: each analyzer's contribution is w_i * t_i, and they sum to the LLR.
+and it makes the report exact: each analyzer's contribution is w_i * t_i, and bias + the contributions = the LLR.
 """
 import math
 
@@ -50,7 +50,7 @@ class Fusion:
             return None
         vals = self.term_values(feats)
         contrib = {t["name"]: float(w * vals[t["name"]]) for t, w in zip(self.terms, self.m["weights"])}
-        contrib[self.terms[0]["name"]] += float(self.m["bias"])  # bias shown with the first (neural) term
-        r = float(sum(contrib.values()))
-        return {"llr_raw": r, "llr": float(np.clip(r, -CAP, CAP)),
+        bias = float(self.m["bias"])  # fusion intercept: not evidence from any analyzer, reported on its own
+        r = bias + float(sum(contrib.values()))
+        return {"llr_raw": r, "llr": float(np.clip(r, -CAP, CAP)), "bias": bias,
                 "llr_v3": float(np.clip(self.llr_v3(v3), -CAP, CAP)), "contrib": contrib}

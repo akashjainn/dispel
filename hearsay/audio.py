@@ -34,6 +34,24 @@ def _ffmpeg_decode(path, sr=48000):
     return np.frombuffer(out, dtype="<f4").copy(), sr
 
 
+MAX_CHANNELS, MAX_SR = 32, 384000
+
+
+def _sf_decode_mono(path):
+    """Read at most MAX_DECODE_S seconds with soundfile, downmixing block by block so memory stays at one block of
+    all channels plus the mono result (a many-channel, high-rate file cannot blow up the allocation)."""
+    nfo = sf.info(path)
+    if nfo.channels > MAX_CHANNELS or nfo.samplerate > MAX_SR:
+        raise ValueError(f"unsupported layout: {nfo.channels} ch at {nfo.samplerate} Hz")
+    limit = int(MAX_DECODE_S * nfo.samplerate)
+    parts, n = [], 0
+    for blk in sf.blocks(path, blocksize=nfo.samplerate, dtype="float32", always_2d=True, frames=limit):
+        parts.append(blk.mean(1))
+        n += len(blk)
+    x = np.concatenate(parts) if parts else np.zeros(0, np.float32)
+    return x, nfo.samplerate, nfo.channels
+
+
 def load(src):
     """src: path or bytes. Returns (x 16 kHz mono float32, info dict). Raises ValueError if undecodable.
     Bytes are written to a temp file that is deleted before returning (the server keeps no audio)."""
@@ -48,11 +66,9 @@ def load(src):
     try:
         info = _probe(path)
         try:
-            nfo = sf.info(path)
-            x, sr = sf.read(path, frames=int(MAX_DECODE_S * nfo.samplerate), dtype="float32", always_2d=True)
+            x, sr, ch = _sf_decode_mono(path)
             if info is None:
-                info = {"sample_rate": sr, "channels": x.shape[1], "codec": "pcm"}
-            x = x.mean(1)
+                info = {"sample_rate": sr, "channels": ch, "codec": "pcm"}
         except Exception:
             try:
                 x, sr = _ffmpeg_decode(path)

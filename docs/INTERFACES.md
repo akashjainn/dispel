@@ -50,8 +50,9 @@ Response 200:
 | `overall.prior` | float | the prior that was used |
 | `overall.probability` | float | sigmoid(llr + logit(prior)), between 0 and 1 |
 | `overall.verdict` | enum | `likely_synthetic` \| `inconclusive` \| `likely_real` |
+| `overall.fusion_bias` | float | optional; the fusion intercept, which belongs to no analyzer. `fusion_bias` + the `llr_contribution`s = the LLR before the cap |
 | `segments[]` | array | each item is `{ "start_s", "end_s", "llr", "probability" }`: the neural detector alone on each 4 s window (up to 3) |
-| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; they sum to the fused LLR before the cap) |
+| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; with `overall.fusion_bias` they sum to the fused LLR before the cap) |
 | `manipulation` | object | `{ "type": str, "confidence": float }`. `type` is `"unknown"` until we have the NSA label schema. |
 | `channel` | object | `{ "bandwidth_hz": int, "phone_like": bool, "note": str }` |
 | `transcript` | string or null | optional |
@@ -101,7 +102,7 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
-- 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques.
+- 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).
 - 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.
 - 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is the release name (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.
 - 0.2 (no bump): added the `/` landing page.
