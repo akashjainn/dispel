@@ -178,7 +178,7 @@ Fill these in when each part is scaffolded. Don't guess them.
 - Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
 - Server tests: `cd server && python -m pytest -q`
 - Server in Docker: `docker compose -f docker/compose.yml up --build`
-- Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Server replacement/infra changes: Actions -> infra -> Run workflow. Details in `infra/vultr/README.md`.
+- Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Deploy logic lives in `docker/remote-deploy.sh` and `docker/compose.prod.yml` (repo-driven). Infra changes: Actions -> infra -> Run workflow; replacing the server needs the `replace_server` box. Weights live on a persistent volume and survive a replacement. Details in `infra/vultr/README.md`.
 - Smoke tests: `TBD`
 - NSA TSV: `MODEL_DIR=<release> python -m hearsay predict <test_dir> -o <Team>_predictions.tsv --template <NSA template>.tsv` (writes and validates; header `filename<TAB>cm-score`). Check only: `python -m hearsay validate <tsv> --template <template>`
 - Docker (NSA): same image as the server; see the header of `docker/Dockerfile.server` for the `docker run` line.

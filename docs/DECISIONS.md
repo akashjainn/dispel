@@ -39,3 +39,7 @@
   The server, the NSA TSV (`python -m hearsay predict`) and the Docker image all use the same `hearsay/` code.
 - **Sat 02:50. Verdict band:** placeholder 0.25 / 0.75 on the posterior stays until calibration on
   new voices is fixed (teammate check: 18 of 20 consented ElevenLabs clones scored "likely real", although the ranking was right, AUC 0.98).
+- **Sat. Repo-driven server:** the Vultr server's first-boot script is a fixed bootstrap; deploy logic and the container stack
+  live in the repo (`docker/remote-deploy.sh`, `docker/compose.prod.yml`) and ship on merge. Model weights sit on a separate
+  NVMe block-storage volume (`/opt/dispel/models`, 10 GB) that survives server replacement. `ignore_changes = [user_data]`, a
+  `replace_server` gate in the infra workflow and `prevent_destroy` on the volume stop accidental wipes. (israel/repo-driven-server)
