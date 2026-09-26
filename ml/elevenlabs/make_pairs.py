@@ -10,7 +10,14 @@ NN matches line NN of sentences.txt. Output (16 kHz mono WAV, same as the NSA te
     <out>/manifest.tsv
 Needs ffmpeg on PATH and ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID (env or ml/elevenlabs/.env).
 Keep --out outside the repo: audio must never be committed.
+
+If the real recordings are lossy (e.g. an Android recorder's AAC 128 kbps .mp4), pass
+--fake-codec aac128 so the fakes get the same compression history; otherwise "has codec
+artifacts" becomes a free real-vs-fake shortcut. The untouched ElevenLabs audio is kept in
+<out>/fake_pcm/ (reruns reuse it, so no credits are spent twice).
 """
+
+import tempfile
 
 import argparse
 import json
@@ -42,6 +49,15 @@ def to_wav(src: Path, dst: Path):
         ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-ac", "1", "-ar", str(SR), str(dst)],
         check=True,
     )
+
+
+def aac_roundtrip(src: Path, dst: Path, bitrate: str):
+    """Encode like a phone recorder (AAC, 44.1 kHz mono), then decode back to 16 kHz WAV."""
+    with tempfile.TemporaryDirectory() as tmp:
+        m4a = Path(tmp) / "x.m4a"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-ac", "1", "-ar", "44100",
+                        "-c:a", "aac", "-b:a", bitrate, str(m4a)], check=True)
+        to_wav(m4a, dst)
 
 
 def tts(text: str, voice_id: str, api_key: str, model: str) -> bytes:
@@ -77,6 +93,7 @@ def main():
     ap.add_argument("--speaker", required=True, help="short speaker tag used in filenames")
     ap.add_argument("--model", default="eleven_multilingual_v2", help="ElevenLabs model_id")
     ap.add_argument("--skip-fake", action="store_true", help="only convert the real recordings")
+    ap.add_argument("--fake-codec", choices=["aac128"], help="give fakes the real side's lossy codec")
     args = ap.parse_args()
 
     repo = HERE.parents[1]
@@ -95,6 +112,8 @@ def main():
 
     (args.out / "real").mkdir(parents=True, exist_ok=True)
     (args.out / "fake").mkdir(parents=True, exist_ok=True)
+    if args.fake_codec:
+        (args.out / "fake_pcm").mkdir(exist_ok=True)
     rows = []
 
     for i, text in enumerate(sentences, start=1):
@@ -110,9 +129,14 @@ def main():
 
         if not args.skip_fake:
             dst = args.out / "fake" / f"{args.speaker}_fake_{nn}.wav"
-            if not dst.exists():  # don't spend credits twice on reruns
-                write_pcm_wav(tts(text, voice_id, api_key, args.model), dst)
-            rows.append((dst.name, "spoof", nn, f"elevenlabs:{args.model}", f"{duration_s(dst):.2f}", text))
+            pcm = args.out / "fake_pcm" / dst.name if args.fake_codec else dst
+            if not pcm.exists():  # don't spend credits twice on reruns
+                write_pcm_wav(tts(text, voice_id, api_key, args.model), pcm)
+            source = f"elevenlabs:{args.model}"
+            if args.fake_codec:
+                aac_roundtrip(pcm, dst, "128k")
+                source += f"+{args.fake_codec}"
+            rows.append((dst.name, "spoof", nn, source, f"{duration_s(dst):.2f}", text))
             print(f"[{nn}] fake  {dst.name}")
 
     with open(args.out / "manifest.tsv", "w") as f:

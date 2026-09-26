@@ -6,8 +6,10 @@ Usage:
 Reads each <set>/manifest.tsv from make_pairs.py and writes, identically for real and fake:
     <out>/real/*.wav, <out>/fake/*.wav, <out>/manifest.tsv (all input sets merged)
 Steps per clip:
-  1. cut leading and trailing silence below THRESH_DB, keeping PAD_S of it at each end
-     (pauses between words are kept: they are evidence for prosody analysis)
+  1. cut leading and trailing audio quieter than REL_THRESH_DB below the clip's own peak
+     (but never a threshold below MIN_THRESH_DB), keeping PAD_S of it at each end. Pauses
+     between words are kept: they are evidence for prosody analysis. Per-clip, because
+     room noise differs per recording (-46 dBFS in a quiet room, ~-37 dBFS in a louder one).
   2. apply one constant gain so mean volume is TARGET_DB (never above PEAK_CEIL_DB peak);
      a constant gain, not dynamic normalization, so the waveform shape is untouched
 Output stays 16 kHz mono 16-bit WAV. Keep --out outside the repo.
@@ -22,7 +24,8 @@ import wave
 from pathlib import Path
 
 SR = 16000
-THRESH_DB = -35
+REL_THRESH_DB = 30
+MIN_THRESH_DB = -35  # quiet recordings: never trim at a level below typical room noise
 PAD_S = 0.15
 TARGET_DB = -26.0
 PEAK_CEIL_DB = -1.0
@@ -34,7 +37,9 @@ def ffmpeg(*args):
 
 
 def trim_edges(src: Path, dst: Path):
-    edge = f"silenceremove=start_periods=1:start_threshold={THRESH_DB}dB:start_silence={PAD_S}"
+    _, peak = volume_stats(src)
+    thresh = max(peak - REL_THRESH_DB, MIN_THRESH_DB)
+    edge = f"silenceremove=start_periods=1:start_threshold={thresh:.1f}dB:start_silence={PAD_S}"
     ffmpeg("-i", str(src), "-af", f"{edge},areverse,{edge},areverse", "-ac", "1", "-ar", str(SR), str(dst))
 
 
