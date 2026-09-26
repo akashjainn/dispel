@@ -1,4 +1,4 @@
-# INTERFACES: version 0.1 (draft)
+# INTERFACES: version 0.2 (draft)
 
 Change this only through a PR that bumps the version and names the change.
 Both `app/` and `server/` code against this file. A mock response is in
@@ -47,11 +47,24 @@ Errors: `{"error": "<code>", "message": str}` with status 400 (bad audio), 413
 (too long), or 500. Error codes: `decode_failed`, `too_short` (< 1 s),
 `too_long` (> 120 s), `internal`.
 
-## Electron IPC (preload bridge `window.wizard`)
-- `wizard.captureLast(seconds: number): Promise<ArrayBuffer>` records system
-  audio. It only runs after the user clicks.
-- `wizard.analyze(audio: ArrayBuffer | string /* file path */, prior?: number): Promise<AnalyzeResponse>`
-- `wizard.health(): Promise<Health>`
+## Electron IPC (preload bridge `window.wizard`, app in `app/`)
+Changed in 0.2: the bridge now matches what the app does. The main process
+makes every decision; the renderer only draws the state it's sent.
+
+Renderer → main (each argument is validated in main):
+- `wizard.pickFile()` opens a file dialog, then analyzes the chosen file.
+- `wizard.analyzeFile(file: File)` analyzes a dropped file. The preload turns
+  it into a path; main checks the extension, that it's a file, and its size.
+- `wizard.dismissBubble()`, `wizard.vanished()`, `wizard.drag(phase, x, y)` are UI only.
+
+Main → renderer:
+- `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
+  `hidden | vanish | idle | analyzing | result | call-watch | call-alert`.
+  `result` and `call-alert` carry an AnalyzeResponse as `result`.
+
+Not built yet: `captureLast(seconds)` (system-audio capture). Until then no
+audio is captured at all, and call-mode results are mocks (see
+`app/src/main/analyzer.js`).
 
 The renderer never talks to the network directly. All HTTP calls go through the
 main process.

@@ -14,3 +14,11 @@
 - **Fri 20:00. ElevenLabs:** we generate voices only from consenting teammates
   and stock library voices. We never clone public figures, including for the
   demo. All generated data is disclosed.
+- **Sat 02:25. Call watch (proposed by David, needs Akash's OK):** the app
+  starts watching automatically when a call app (Zoom, FaceTime, Teams, Discord,
+  Slack, or a browser) is using the microphone. It finds out by asking macOS
+  which process is running audio input, and never opens the mic itself. The
+  wizard shows a gray "watching" state so the user can see it. It can be turned
+  off from the tray ("Watch calls"). Right now no audio is captured and call
+  results are mocks. Capturing call audio will change the "only when the user
+  asks" rule, so it needs its own decision (in-memory buffer, never saved).

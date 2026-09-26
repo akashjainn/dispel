@@ -168,7 +168,7 @@ Other rules:
 ## Commands
 
 Fill these in when each part is scaffolded. Don't guess them.
-- App dev: `David Popescu`
+- App dev (David): `cd app && npm install && npm start` (`npm start -- --simulate-call` runs the call flow without a real call)
 - Server dev: `TBD`
 - Smoke tests: `TBD`
 - NSA TSV: `TBD` (the header is exactly `filename<TAB>cm-score`; see CHALLENGE.md)
