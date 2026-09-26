@@ -39,12 +39,12 @@ defaults:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.8
+          terraform_version: 1.16.4
           terraform_wrapper: false
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false -input=false
@@ -54,19 +54,19 @@ jobs:
   plan:
     needs: validate
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.8
+          terraform_version: 1.16.4
           terraform_wrapper: false
       - run: terraform init -input=false
       - name: plan
         run: |
           terraform plan -input=false -no-color -out=tfplan | tee plan.txt
           { echo '### terraform plan'; echo '```'; tail -n 80 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         with:
           name: tfplan
@@ -76,14 +76,14 @@ jobs:
   apply:
     needs: plan
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.8
+          terraform_version: 1.16.4
           terraform_wrapper: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tfplan
           path: infra/vultr
