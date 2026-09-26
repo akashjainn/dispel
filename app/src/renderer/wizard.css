@@ -26,8 +26,9 @@ body {
 }
 
 /* ---------- stage (bottom-right of the window) ----------
-   One 80x120 canvas (see sprites.js) drawn at exactly 2x, so every sprite
-   pixel is a crisp 2x2 block. If you change the size, change SIZE in main.js
+   One 320x480 canvas (the 80x120 stage at 4x, see sprites.js) shown at
+   160x240, so every pixel-art pixel is a crisp 2x2 block and the 3D look is
+   sharp on Retina screens. If you change the size, change SIZE in main.js
    and .bubble's right offset to match. */
 
 .stage {
@@ -39,6 +40,11 @@ body {
   image-rendering: pixelated;
   cursor: grab;
   transition: filter 0.4s, opacity 0.4s;
+}
+
+/* The 3D look is smooth shading, not pixels: scale it smoothly on 1x screens. */
+.look-3d .stage {
+  image-rendering: auto;
 }
 
 .drop-hover .stage {

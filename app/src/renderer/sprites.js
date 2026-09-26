@@ -1,15 +1,25 @@
 // Canvas sprite stage, same layout as focus-wizard: every sheet is a grid of
 // 80x128 frames, and all layers are drawn at the SAME position on an 80x120
-// canvas (frames start 8px above the top). The art is drawn to line up, so the
-// wizard stands in the cauldron's stew with no offsets or clipping. The canvas
-// is scaled up with CSS (see .stage in wizard.css).
+// stage (frames start 8px above the top). The art is drawn to line up, so the
+// wizard stands in the cauldron's stew with no offsets or clipping.
+//
+// The canvas is 4x that (320x480) and shown at 160x240 CSS px (see .stage in
+// wizard.css). Pixel sheets are drawn 4x with nearest-neighbor, so they stay
+// crisp; the 3D sheets (Assets/3d/, made by scripts/make_3d_sprites.py) are
+// already 4x and draw 1:1.
 
 const FRAME_W = 80;
 const FRAME_H = 128;
-const CANVAS_W = 80;
-const CANVAS_H = 120;
-const ORIGIN_X = Math.floor((CANVAS_W - FRAME_W) / 2); // 0
-const ORIGIN_Y = CANVAS_H - FRAME_H; // -8
+const STAGE_W = 80;
+const STAGE_H = 120;
+const SCALE = 4; // canvas pixels per stage pixel
+const CANVAS_W = STAGE_W * SCALE;
+const CANVAS_H = STAGE_H * SCALE;
+const ORIGIN_X = Math.floor((STAGE_W - FRAME_W) / 2) * SCALE; // 0
+const ORIGIN_Y = (STAGE_H - FRAME_H) * SCALE; // -32
+
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+const offscreen = () => Object.assign(document.createElement('canvas'), { width: CANVAS_W, height: CANVAS_H });
 
 class Stage {
   constructor(canvas) {
@@ -17,11 +27,14 @@ class Stage {
     this.ctx.imageSmoothingEnabled = false;
     this.layers = []; // drawn in order: first is at the back
     this.pending = false;
+    this.sweep = null; // an in-progress look change, see sweepTo()
+    this.sparks = [];
+    this.buf = { from: offscreen(), to: offscreen(), glow: offscreen() };
   }
 
-  // src is one sheet, or { key: src } for a layer that can switch sheets with
-  // use(key) (all load up front, so a switch never shows a blank frame).
-  // recolor(ImageData) may edit each sheet's pixels once, after it loads.
+  // src is one sheet, or { key: sheet } for a layer that can switch sheets
+  // with use(key). A sheet is a path (pixel art, 1x) or { src, scale }.
+  // recolor(ImageData) edits a pixel sheet's pixels once, after it loads.
   add(src, recolor) {
     const layer = new SpriteLayer(this, src, recolor);
     this.layers.push(layer);
@@ -31,64 +44,207 @@ class Stage {
   requestDraw() {
     if (this.pending) return;
     this.pending = true;
-    requestAnimationFrame(() => {
+    requestAnimationFrame((now) => {
       this.pending = false;
-      this.ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-      for (const l of this.layers) l.draw(this.ctx);
+      this.render(now);
+      if (this.sweep || this.sparks.length) this.requestDraw(); // keep effects moving
     });
+  }
+
+  render(now) {
+    const { ctx } = this;
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    if (this.sweep) this.renderSweep(now);
+    else for (const l of this.layers) l.draw(ctx);
+    this.renderSparks(now);
+  }
+
+  // ---------- look change: a glowing line sweeps up from the cauldron ----------
+
+  // apply() switches the layers to the new look (their sheets must be loaded,
+  // see SpriteLayer.load). The new look rises from the bottom behind the line;
+  // the old one stays above it until the line passes.
+  sweepTo(apply, { duration = 900, onDone } = {}) {
+    this.finishSweep();
+    const from = this.layers.map((l) => l.key);
+    apply();
+    this.sweep = { from, start: performance.now(), duration, onDone, lastSpark: 0 };
+    this.requestDraw();
+  }
+
+  finishSweep() {
+    const s = this.sweep;
+    if (!s) return;
+    this.sweep = null;
+    s.onDone?.();
+  }
+
+  renderSweep(now) {
+    const s = this.sweep;
+    const t = Math.min(1, (now - s.start) / s.duration);
+    const band = 44; // glow height, canvas px
+    const line = CANVAS_H + band - easeInOut(t) * (CANVAS_H + band * 2);
+    const { from, to, glow } = this.buf;
+    const draw = (c, keys) => {
+      const x = c.getContext('2d');
+      x.imageSmoothingEnabled = false;
+      x.clearRect(0, 0, CANVAS_W, CANVAS_H);
+      this.layers.forEach((l, i) => l.draw(x, keys?.[i]));
+      return x;
+    };
+    draw(from, s.from);
+    const toCtx = draw(to);
+
+    const { ctx } = this;
+    const y = Math.max(0, Math.min(CANVAS_H, Math.round(line)));
+    if (y > 0) ctx.drawImage(from, 0, 0, CANVAS_W, y, 0, 0, CANVAS_W, y);
+    if (y < CANVAS_H) ctx.drawImage(to, 0, y, CANVAS_W, CANVAS_H - y, 0, y, CANVAS_W, CANVAS_H - y);
+
+    // Glow only on the art (both looks), strongest at the line.
+    const g = glow.getContext('2d');
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    g.drawImage(from, 0, 0);
+    g.drawImage(to, 0, 0);
+    g.globalCompositeOperation = 'source-in';
+    const grad = g.createLinearGradient(0, line - band, 0, line + band);
+    grad.addColorStop(0, 'rgba(183,140,255,0)');
+    grad.addColorStop(0.45, 'rgba(214,190,255,0.85)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.55, 'rgba(214,190,255,0.85)');
+    grad.addColorStop(1, 'rgba(183,140,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(glow, 0, 0);
+    ctx.restore();
+
+    // Sparks fly off the art where the line crosses it.
+    if (y > 0 && y < CANVAS_H && now - s.lastSpark > 30) {
+      s.lastSpark = now;
+      const row = toCtx.getImageData(0, y, CANVAS_W, 1).data;
+      const solid = [];
+      for (let x = 0; x < CANVAS_W; x += 4) if (row[x * 4 + 3] > 40) solid.push(x);
+      for (let i = 0; i < 3 && solid.length; i++) {
+        const x = solid[Math.floor(Math.random() * solid.length)];
+        this.spark(x, y, { vx: (Math.random() - 0.5) * 60, vy: -40 - Math.random() * 70 });
+      }
+    }
+    if (t >= 1) this.finishSweep();
+  }
+
+  // ---------- sparkles ----------
+
+  spark(x, y, { vx = 0, vy = 0, life = 500 + Math.random() * 400, size = 3 + Math.random() * 4, gold = Math.random() < 0.5 } = {}) {
+    this.sparks.push({ x, y, vx, vy, life, size, gold, born: performance.now() });
+    this.requestDraw();
+  }
+
+  // A ring of sparkles bursting out from (x, y), in stage (1x) pixels.
+  burst(x, y, count = 22) {
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + Math.random() * 0.3;
+      const v = 90 + Math.random() * 110;
+      this.spark(x * SCALE, y * SCALE, { vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, size: 4 + Math.random() * 5 });
+    }
+  }
+
+  renderSparks(now) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    this.sparks = this.sparks.filter((p) => {
+      const age = (now - p.born) / p.life;
+      if (age >= 1) return false;
+      const secs = (now - p.born) / 1000;
+      const x = p.x + p.vx * secs;
+      const y = p.y + p.vy * secs + 60 * secs * secs; // a little gravity
+      const r = p.size * (1 - age * 0.6);
+      ctx.globalAlpha = 1 - age * age;
+      ctx.fillStyle = p.gold ? '#ffe27a' : '#d9c2ff';
+      // four-point star: a long cross and a bright core
+      ctx.fillRect(x - r, y - 1, r * 2, 2);
+      ctx.fillRect(x - 1, y - r, 2, r * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      return true;
+    });
+    ctx.restore();
   }
 }
 
-// Loads a sheet into a canvas, recolored if asked. Calls done(canvas).
-function loadSheet(src, recolor, done) {
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0);
-    if (recolor) {
-      const data = ctx.getImageData(0, 0, c.width, c.height);
-      recolor(data);
-      ctx.putImageData(data, 0, 0);
-    }
-    done(c);
-  };
-  img.onerror = () => console.error('[sprites] could not load', src);
-  img.src = src;
+// Loads a sheet into a canvas, recolored if asked. Resolves to { img, scale }.
+function loadSheet({ src, scale }, recolor) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext('2d', { willReadFrequently: Boolean(recolor) });
+      ctx.drawImage(img, 0, 0);
+      if (recolor) {
+        const data = ctx.getImageData(0, 0, c.width, c.height);
+        recolor(data);
+        ctx.putImageData(data, 0, 0);
+      }
+      resolve({ img: c, scale });
+    };
+    img.onerror = () => reject(new Error(`could not load ${src}`));
+    img.src = src;
+  });
 }
 
 class SpriteLayer {
   constructor(stage, src, recolor) {
     this.stage = stage;
     const srcs = typeof src === 'string' ? { main: src } : src;
-    this.keys = Object.keys(srcs);
-    this.key = this.keys[0];
-    this.sheets = {}; // key -> canvas, once loaded
+    this.specs = {}; // key -> { src, scale, recolor }
     for (const [key, s] of Object.entries(srcs)) {
-      loadSheet(s, recolor, (c) => {
-        this.sheets[key] = c;
-        if (key === this.key) stage.requestDraw();
-      });
+      const spec = typeof s === 'string' ? { src: s, scale: 1 } : s;
+      // Recolors are written for pixel sheets; 3D sheets are baked already recolored.
+      this.specs[key] = { ...spec, recolor: spec.scale === 1 ? recolor : null };
     }
+    this.sheets = {}; // key -> Promise of { img, scale }
+    this.loaded = {}; // key -> { img, scale }, once loaded
+    this.key = Object.keys(this.specs)[0];
+    this.load(this.key);
     this.frame = null; // [col, row] or null when hidden
     this.timer = null;
     this.loop = null; // the last looping animation, { frames, fps }
   }
 
-  // Switch to another sheet; the current animation carries on from the same frame.
+  // Loads a sheet once (on first use); resolves when it can be drawn.
+  load(key) {
+    if (!this.specs[key]) return Promise.resolve();
+    this.sheets[key] ??= loadSheet(this.specs[key], this.specs[key].recolor).then(
+      (sheet) => {
+        this.loaded[key] = sheet;
+        if (key === this.key) this.stage.requestDraw();
+      },
+      (err) => console.error('[sprites]', err.message),
+    );
+    return this.sheets[key];
+  }
+
+  // Switch sheets; the current animation carries on from the same frame. Until
+  // the new sheet has loaded, the old one keeps drawing (never a blank frame).
   use(key) {
-    if (!this.keys.includes(key) || key === this.key) return;
+    if (!this.specs[key] || key === this.key) return;
+    if (this.loaded[this.key]) this.prevKey = this.key;
     this.key = key;
+    this.load(key);
     this.stage.requestDraw();
   }
 
-  draw(ctx) {
-    const img = this.sheets[this.key];
-    if (!this.frame || !img) return;
+  draw(ctx, key = this.key) {
+    const sheet = this.loaded[key] ?? this.loaded[this.prevKey];
+    if (!this.frame || !sheet) return;
     const [col, row] = this.frame;
-    ctx.drawImage(img, col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H, ORIGIN_X, ORIGIN_Y, FRAME_W, FRAME_H);
+    const w = FRAME_W * sheet.scale;
+    const h = FRAME_H * sheet.scale;
+    ctx.drawImage(sheet.img, col * w, row * h, w, h, ORIGIN_X, ORIGIN_Y, FRAME_W * SCALE, FRAME_H * SCALE);
   }
 
   show(col, row) {

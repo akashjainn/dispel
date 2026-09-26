@@ -12,7 +12,8 @@ connectivity (hat, face, beard, robe), and each region is redrawn:
 - robe: dark plum, stars removed; the beard's V becomes a neckline
 
 Run from app/: python3 scripts/make_witch_sprites.py   (needs Pillow)
-Re-run it whenever wizard-sprites.png changes; commit the PNG it writes.
+Re-run it whenever wizard-sprites.png changes, then scripts/make_3d_sprites.py
+for the 3D look; commit the PNGs they write.
 """
 from collections import deque
 from pathlib import Path

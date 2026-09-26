@@ -5,9 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
 
-// Both characters share one frame layout (see Assets/ and sprites.js).
+// Both characters share one frame layout (see Assets/ and sprites.js). Each
+// has a pixel-art look (2d) and a pre-rendered clay look (3d, Assets/3d/).
 const CHARACTERS = ['wizard', 'witch'];
-const DEFAULTS = { character: 'wizard' };
+const STYLES = ['2d', '3d'];
+const DEFAULTS = { character: 'wizard', style: '2d' };
 
 const prefsPath = () => path.join(app.getPath('userData'), 'prefs.json');
 
@@ -20,6 +22,7 @@ function loadPrefs() {
   }
   return {
     character: CHARACTERS.includes(saved?.character) ? saved.character : DEFAULTS.character,
+    style: STYLES.includes(saved?.style) ? saved.style : DEFAULTS.style,
   };
 }
 
@@ -34,4 +37,4 @@ function savePrefs(prefs) {
   }
 }
 
-module.exports = { CHARACTERS, loadPrefs, savePrefs };
+module.exports = { CHARACTERS, STYLES, loadPrefs, savePrefs };

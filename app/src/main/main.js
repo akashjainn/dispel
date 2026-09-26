@@ -8,7 +8,7 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, sh
 const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
-const { CHARACTERS, loadPrefs, savePrefs } = require('./prefs');
+const { CHARACTERS, STYLES, loadPrefs, savePrefs } = require('./prefs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ASSETS = path.join(ROOT, 'Assets');
@@ -40,6 +40,7 @@ let busy = false; // a file analysis is running
 let callSession = null; // { id, app, bounds, canEnd, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
 let character = 'wizard'; // wizard | witch, loaded from prefs.json once the app is ready
+let style = '2d'; // 2d (pixel art) | 3d (pre-rendered clay)
 
 // ---------- windows ----------
 
@@ -64,7 +65,7 @@ function createWizard() {
   });
   setWizardLevel('floating');
   wizard.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  wizard.loadFile(path.join(RENDERER, 'wizard.html'), { query: { character } }); // no flash of the other one
+  wizard.loadFile(path.join(RENDERER, 'wizard.html'), { query: { character, style } }); // first frame is right
   wizard.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   wizard.webContents.on('will-navigate', (e) => e.preventDefault());
 }
@@ -349,23 +350,41 @@ function simulateCall() {
 
 // ---------- tray ----------
 
-// Switch between the wizard and the witch. The renderer swaps sprite sheets
-// under a poof; the choice is saved for the next launch.
-function setCharacter(next) {
-  if (!CHARACTERS.includes(next) || next === character) return;
-  character = next;
-  savePrefs({ ...loadPrefs(), character });
-  wizard.webContents.send('wizard:character', character);
+// Wizard or witch, 2D or 3D. The renderer plays the transition; the choice is
+// saved for the next launch.
+function setLook(next) {
+  const c = CHARACTERS.includes(next.character) ? next.character : character;
+  const s = STYLES.includes(next.style) ? next.style : style;
+  if (c === character && s === style) return;
+  character = c;
+  style = s;
+  savePrefs({ ...loadPrefs(), character, style });
+  wizard.webContents.send('wizard:look', { character, style });
   tray.setImage(trayIcon());
   tray.setToolTip(`Dispel ${character}`);
 }
 
 const otherCharacter = () => (character === 'wizard' ? 'witch' : 'wizard');
 
+// Menu items for the look, shared by the right-click and menu-bar menus.
+function lookMenuItems() {
+  return [
+    { label: `Turn into a ${otherCharacter()}`, click: () => setLook({ character: otherCharacter() }) },
+    {
+      label: '3D look',
+      type: 'checkbox',
+      checked: style === '3d',
+      click: (item) => setLook({ style: item.checked ? '3d' : '2d' }),
+    },
+  ];
+}
+
 function trayIcon() {
   // The character's face from the first idle frame, sized for the menu bar.
-  const sheet = nativeImage.createFromPath(path.join(ASSETS, `${character}-sprites.png`));
-  const face = sheet.crop({ x: 20, y: 16, width: 48, height: 48 });
+  const k = style === '3d' ? 4 : 1; // the 3D sheets are 4x
+  const sheetPath = style === '3d' ? path.join(ASSETS, '3d', `${character}-sprites.png`) : path.join(ASSETS, `${character}-sprites.png`);
+  const sheet = nativeImage.createFromPath(sheetPath);
+  const face = sheet.crop({ x: 20 * k, y: 16 * k, width: 48 * k, height: 48 * k });
   const icon = nativeImage.createEmpty();
   icon.addRepresentation({ scaleFactor: 1, buffer: face.resize({ width: 18, height: 18, quality: 'best' }).toPNG() });
   icon.addRepresentation({ scaleFactor: 2, buffer: face.resize({ width: 36, height: 36, quality: 'best' }).toPNG() });
@@ -377,7 +396,8 @@ function trayMenu() {
     { label: wizardVisible ? `Send ${character} away` : `Summon ${character}`, click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
     { label: 'Learn about deepfakes', click: () => learn() },
-    { label: `Turn into a ${otherCharacter()}`, click: () => setCharacter(otherCharacter()) },
+    { type: 'separator' },
+    ...lookMenuItems(),
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -429,7 +449,8 @@ function registerIpc() {
     Menu.buildFromTemplate([
       { label: 'Check an audio file…', click: pickFile, enabled: !busy },
       { label: 'Learn about deepfakes', click: () => learn() },
-      { label: `Turn into a ${otherCharacter()}`, click: () => setCharacter(otherCharacter()) },
+      { type: 'separator' },
+      ...lookMenuItems(),
       { type: 'separator' },
       { label: `Send ${character} away`, click: dismiss, enabled: !callSession },
     ]).popup({ window: wizard });
@@ -472,7 +493,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.whenReady().then(() => {
   if (process.platform === 'darwin') app.dock.hide();
   desktopAnchor = defaultAnchor();
-  character = loadPrefs().character;
+  ({ character, style } = loadPrefs());
   createWizard();
   createOverlay();
   createTray();

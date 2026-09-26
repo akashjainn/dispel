@@ -106,10 +106,12 @@ Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
   `hidden | vanish | idle | analyzing | result | learn | call-watch | call-alert`.
   `result` and `call-alert` carry an AnalyzeResponse as `result`.
-- `wizard.onCharacter(cb)` receives `"wizard" | "witch"` when the user switches
-  characters; the renderer morphs to the new sprite sheet. The saved character
-  also comes in the page URL (`wizard.html?character=witch`) so the first frame
-  is right. Main saves the choice in `<userData>/prefs.json`.
+- `wizard.onLook(cb)` receives `{ character: "wizard" | "witch", style: "2d" | "3d" }`
+  when the user changes the look (right-click or tray menu: "Turn into a witch/wizard",
+  "3D look"). The renderer plays the transition: a morph through the hat for a new
+  character, a glowing sweep for 2D <-> 3D. The saved look also comes in the page URL
+  (`wizard.html?character=witch&style=3d`) so the first frame is right. Main saves it
+  in `<userData>/prefs.json`.
 
 File and call checks go to the server set in `app/config.local.json` or
 `DISPEL_SERVER_URL` (local mock if neither is set). Not built yet:
@@ -122,7 +124,7 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
-- 0.5 (no bump): IPC only, additive: `wizard.onCharacter(cb)` and the `character` page parameter (wizard/witch switch). No HTTP change.
+- 0.5 (no bump): IPC only, additive: `wizard.onLook(cb)` and the `character`/`style` page parameters (wizard/witch, 2D/3D). No HTTP change.
 - 0.5: `POST /analyze` accepts `source=call` with no `file` (mocked server only; a real model gives `too_short`). Demo answers are now about 70% likely synthetic, 30% likely real, instead of always the same likely-synthetic example. The app sends call checks to the server too.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).
 - 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.

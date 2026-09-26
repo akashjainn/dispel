@@ -2,17 +2,48 @@
 
 const $ = (id) => document.getElementById(id);
 
-// Back to front, as in focus-wizard: pot, wizard (or witch), wand, poof.
+// Back to front, as in focus-wizard: pot, wizard (or witch), wand, poof. Every
+// layer has a pixel-art (2d) and a pre-rendered clay (3d) sheet.
+const px = (name) => `../../Assets/${name}`;
+const clay = (name) => ({ src: `../../Assets/3d/${name}`, scale: 4 });
 const stage = new Stage($('stage'));
-const potLayer = stage.add('../../Assets/pot-sheet.png', emptyPot);
+const potLayer = stage.add({ '2d': px('pot-sheet.png'), '3d': clay('pot-sheet.png') }, emptyPot);
 const wizardLayer = stage.add(
-  { wizard: '../../Assets/wizard-sprites.png', witch: '../../Assets/witch-sprites.png' },
+  {
+    'wizard-2d': px('wizard-sprites.png'),
+    'witch-2d': px('witch-sprites.png'),
+    'wizard-3d': clay('wizard-sprites.png'),
+    'witch-3d': clay('witch-sprites.png'),
+  },
   noStewShadow,
 );
-// Main passes the saved character in the page URL so the first frame is right.
-wizardLayer.use(new URLSearchParams(location.search).get('character'));
-const wandLayer = stage.add('../../Assets/wand-hand.png');
-const poofLayer = stage.add('../../Assets/wizard-poof.png');
+const wandLayer = stage.add({ '2d': px('wand-hand.png'), '3d': clay('wand-hand.png') });
+const poofLayer = stage.add({ '2d': px('wizard-poof.png'), '3d': clay('wizard-poof.png') });
+
+// ---------- looks: wizard or witch, 2D or 3D ----------
+
+const LOOK_SHEETS = [
+  [potLayer, (l) => l.style],
+  [wizardLayer, (l) => `${l.character}-${l.style}`],
+  [wandLayer, (l) => l.style],
+  [poofLayer, (l) => l.style],
+];
+const CHARACTERS = ['wizard', 'witch'];
+const STYLES = ['2d', '3d'];
+const validLook = (l, fallback) => ({
+  character: CHARACTERS.includes(l?.character) ? l.character : fallback.character,
+  style: STYLES.includes(l?.style) ? l.style : fallback.style,
+});
+const loadLook = (l) => Promise.all(LOOK_SHEETS.map(([layer, key]) => layer.load(key(l))));
+
+let shown = null; // the look on screen
+function applyLook(l) {
+  shown = l;
+  for (const [layer, key] of LOOK_SHEETS) layer.use(key(l));
+  document.documentElement.classList.toggle('look-3d', l.style === '3d');
+}
+// Main passes the saved look in the page URL so the very first frame is right.
+applyLook(validLook(Object.fromEntries(new URLSearchParams(location.search)), { character: 'wizard', style: '2d' }));
 
 const COPY = {
   likely_synthetic: { title: 'This voice is likely synthetic.', label: 'chance it’s synthetic' },
@@ -201,34 +232,57 @@ const states = {
   },
 };
 
-// Wizard <-> witch: sink into the hat, swap sheets, rise out with a poof, then
-// carry on with whatever loop was playing. When hidden, just swap, so the next
-// appearance is the new character. A state change mid-morph cuts it short.
-let morphTo = null;
-window.wizard.onCharacter((character) => {
-  if (mode === 'hidden' || mode === 'vanish') {
-    wizardLayer.use(character);
-    return;
+// Changing looks. A new character: the old one sinks into the hat, a poof and
+// a burst of sparkles cover the swap, and the new one rises out. A new style
+// (2D <-> 3D): a glowing line sweeps up from the cauldron, leaving the new
+// look behind it. Sheets load before anything moves; a newer change or a
+// state change settles the running transition first.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let lookChange = 0;
+let morphTo = null; // the look a character morph will land on
+
+window.wizard.onLook(async (next) => {
+  const id = ++lookChange;
+  const target = validLook(next, shown);
+  await loadLook(target);
+  if (id !== lookChange) return; // superseded while loading
+  stage.finishSweep();
+  settleMorph();
+  if (target.character === shown.character && target.style === shown.style) return;
+  if (mode === 'hidden' || mode === 'vanish' || reduceMotion.matches) {
+    applyLook(target);
+  } else if (target.character !== shown.character) {
+    morph(target);
+  } else {
+    stage.sweepTo(() => applyLook(target));
   }
-  const resume = wizardLayer.loop;
-  morphTo = character;
-  wizardLayer.play(WIZARD.vanish, 20, {
-    once: true,
-    onDone: () => {
-      finishMorph();
-      poof();
-      wizardLayer.play(WIZARD.appear, 20, { once: true, onDone: () => resume && wizardLayer.play(resume.frames, resume.fps) });
-    },
-  });
 });
 
-function finishMorph() {
-  if (morphTo) wizardLayer.use(morphTo);
+function morph(target) {
+  const resume = wizardLayer.loop;
+  morphTo = target;
+  stage.burst(47, 30, 8); // a few sparks as the spell starts
+  wizardLayer.play(WIZARD.vanish, 18, {
+    once: true,
+    onDone: () => {
+      settleMorph();
+      poof();
+      stage.burst(47, 64, 26); // from the hat, where the swap happens
+      wizardLayer.play(WIZARD.appear, 16, {
+        once: true,
+        onDone: () => resume && wizardLayer.play(resume.frames, resume.fps),
+      });
+    },
+  });
+}
+
+function settleMorph() {
+  if (morphTo) applyLook(morphTo);
   morphTo = null;
 }
 
 window.wizard.onState((state) => {
-  finishMorph();
+  settleMorph();
   mode = state.mode;
   states[state.mode]?.(state);
 });
