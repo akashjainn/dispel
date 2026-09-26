@@ -1,0 +1,43 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# audio, weights, data (never commit)
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.webm
+*.ogg
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.bin
+*.ckpt
+data/
+models/
+datasets/
+
+# node / electron
+node_modules/
+dist/
+out/
+release/
+*.log
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
