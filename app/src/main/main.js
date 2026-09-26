@@ -16,12 +16,11 @@ const RENDERER = path.join(ROOT, 'src', 'renderer');
 const AUDIO_EXTS = new Set(['.wav', '.mp3', '.m4a', '.mp4', '.aac', '.ogg', '.oga', '.opus', '.flac', '.webm', '.mov']);
 const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
-// Window sizes (px). The wizard is drawn at 2x; the bubble sits to its left.
+// Window sizes (px). The wizard in its cauldron is drawn at 2x; the speech
+// bubble sits to its left.
 const SIZE = {
-  desktop: { width: 180, height: 300 }, // wizard + cauldron
-  desktopBubble: { width: 440, height: 300 },
-  call: { width: 180, height: 170 }, // wizard only
-  callBubble: { width: 440, height: 300 },
+  plain: { width: 180, height: 200 },
+  bubble: { width: 440, height: 250 },
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
@@ -44,7 +43,7 @@ let guardEnabled = true;
 
 function createWizard() {
   wizard = new BrowserWindow({
-    ...SIZE.desktop,
+    ...SIZE.plain,
     show: false,
     frame: false,
     transparent: true,
@@ -103,8 +102,7 @@ function currentAnchor() {
 
 // Resize the wizard window around its bottom-right anchor.
 function placeWizard() {
-  const inCall = mode.startsWith('call');
-  const size = inCall ? (bubble ? SIZE.callBubble : SIZE.call) : bubble ? SIZE.desktopBubble : SIZE.desktop;
+  const size = bubble ? SIZE.bubble : SIZE.plain;
   const a = currentAnchor();
   wizard.setBounds({
     x: Math.round(a.right - size.width),
@@ -126,14 +124,19 @@ function setMode(next, payload = {}) {
   if (!wizard.isVisible()) wizard.showInactive();
 }
 
+const OVERLAY_PAD = 24; // must match the ring's inset + border in overlay.html
+
+// Purple ring drawn just outside the call window, never over its content.
 function showOverlay(bounds) {
-  if (!bounds) return;
-  const pad = 8;
+  if (!bounds) {
+    overlay.hide(); // minimized or on another Space
+    return;
+  }
   overlay.setBounds({
-    x: bounds.x - pad,
-    y: bounds.y - pad,
-    width: bounds.width + pad * 2,
-    height: bounds.height + pad * 2,
+    x: bounds.x - OVERLAY_PAD,
+    y: bounds.y - OVERLAY_PAD,
+    width: bounds.width + OVERLAY_PAD * 2,
+    height: bounds.height + OVERLAY_PAD * 2,
   });
   if (!overlay.isVisible()) overlay.showInactive();
   wizard.moveTop();
@@ -303,6 +306,7 @@ function registerIpc() {
   ipcMain.on('wizard:pick-file', () => pickFile());
 
   ipcMain.on('wizard:analyze-path', (_e, p) => {
+    if (callSession) return; // the wizard is busy watching a call
     if (validAudioPath(p)) analyzeFile(p);
     else setMode('result', { error: 'That doesn’t look like an audio file I can read.' });
   });

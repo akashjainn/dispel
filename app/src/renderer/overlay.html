@@ -6,12 +6,15 @@
     <title>Call highlight</title>
     <style>
       html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+      /* The window is the call window plus 24px on each side (OVERLAY_PAD in
+         main.js). The ring's inner edge sits on the call window's edge, so
+         nothing is drawn over the call itself. */
       .glow {
         position: absolute;
-        inset: 4px;
-        border: 4px solid #a855f7;
-        border-radius: 14px;
-        box-shadow: 0 0 18px 4px rgba(168, 85, 247, 0.75), inset 0 0 18px 2px rgba(168, 85, 247, 0.45);
+        inset: 18px;
+        border: 6px solid #a855f7;
+        border-radius: 20px;
+        box-shadow: 0 0 14px 3px rgba(168, 85, 247, 0.8);
         animation: pulse 1.6s ease-in-out infinite;
       }
       @keyframes pulse {

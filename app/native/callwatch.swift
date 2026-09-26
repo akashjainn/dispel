@@ -103,10 +103,12 @@ func snapshot() -> [String: Any] {
 setvbuf(stdout, nil, _IOLBF, 0)
 var last = ""
 while true {
-    if let data = try? JSONSerialization.data(withJSONObject: snapshot(), options: [.sortedKeys]),
+    let snap = snapshot()
+    if let data = try? JSONSerialization.data(withJSONObject: snap, options: [.sortedKeys]),
        let line = String(data: data, encoding: .utf8), line != last {
         print(line)
         last = line
     }
-    Thread.sleep(forTimeInterval: 0.5)
+    // Poll fast during a call so the highlight keeps up when the window is dragged.
+    Thread.sleep(forTimeInterval: (snap["active"] as? Bool) == true ? 0.08 : 0.5)
 }

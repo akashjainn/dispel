@@ -119,7 +119,7 @@ const states = {
     setBody('call', 'watching');
     hideBubble();
     wand(false);
-    potLayer.stop();
+    potLayer.play(POT.bubble, 4);
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
@@ -132,6 +132,7 @@ const states = {
     }
     poof();
     wand(true);
+    potLayer.play(POT.bubble, 10);
     setTimeout(() => mode === 'call-alert' && wand(false), 2500);
     wizardLayer.play(WIZARD.idle, 8);
     showBubble({
@@ -185,9 +186,5 @@ document.addEventListener('dragover', (e) => {
   document.body.classList.add('drop-hover');
 });
 document.addEventListener('dragleave', () => document.body.classList.remove('drop-hover'));
-document.addEventListener('drop', (e) => {
-  e.preventDefault();
-  document.body.classList.remove('drop-hover');
-  const file = e.dataTransfer.files[0];
-  if (file && !document.body.classList.contains('call')) window.wizard.analyzeFile(file);
-});
+// The preload sends the dropped file to main; this only clears the glow.
+document.addEventListener('drop', () => document.body.classList.remove('drop-hover'));

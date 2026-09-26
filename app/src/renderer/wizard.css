@@ -32,7 +32,8 @@ body {
   right: 0;
   bottom: 0;
   width: 180px;
-  height: 300px;
+  height: 200px;
+  transition: filter 0.4s, opacity 0.4s;
 }
 
 .wizard,
@@ -44,20 +45,29 @@ body {
   background-repeat: no-repeat;
 }
 
+/* The wizard stands in the cauldron: he's drawn over the pot but clipped along
+   the front of the rim, so the pot's front wall hides his lower half. The
+   clip follows the bottom edge of the liquid in pot-sheet.png. The pot and
+   wizard frames are aligned so the wizard's frame sits 26 px (1x) lower. */
 .wizard {
+  z-index: 2;
   left: 10px;
-  top: 0;
+  top: 8px;
   width: 160px;
-  height: 152px; /* frame rows 8..84, where the wizard is drawn */
+  height: 152px; /* frame rows 8..84 */
   background-image: url('../../Assets/wizard-sprites.png');
   background-size: 800px 1280px;
+  clip-path: polygon(
+    0 0, 160px 0, 160px 98px, 144px 98px, 132px 106px, 120px 112px, 108px 114px,
+    92px 118px, 68px 118px, 52px 116px, 40px 110px, 24px 102px, 16px 98px, 0 98px
+  );
   cursor: grab;
-  transition: filter 0.4s, opacity 0.4s;
 }
 
 .pot {
+  z-index: 1;
   left: 10px;
-  top: 124px;
+  top: 36px;
   width: 160px;
   height: 160px; /* frame rows 48..128 */
   background-image: url('../../Assets/pot-sheet.png');
@@ -66,8 +76,9 @@ body {
 }
 
 .wand {
+  z-index: 3;
   left: -58px;
-  top: 40px;
+  top: 30px;
   width: 160px;
   height: 160px; /* frame rows 0..80 */
   background-image: url('../../Assets/wand-hand.png');
@@ -76,8 +87,9 @@ body {
 }
 
 .poof {
+  z-index: 4;
   left: 10px;
-  top: -16px;
+  top: -8px;
   width: 160px;
   height: 256px;
   background-image: url('../../Assets/wizard-poof.png');
@@ -85,32 +97,17 @@ body {
   pointer-events: none;
 }
 
-.drop-hover .pot,
-.drop-hover .wizard {
+.drop-hover .stage {
   filter: drop-shadow(0 0 6px #b78cff) drop-shadow(0 0 2px #fff);
 }
 
-/* ---------- call mode: no cauldron, wizard sits in the call's corner ---------- */
+/* ---------- call mode: grayed out in the call window's corner until flagged ---------- */
 
-body.call .stage {
-  height: 170px;
-}
-body.call .wizard {
-  top: 12px;
-}
-body.call .pot {
-  display: none;
-}
-body.call .wand {
-  top: 20px;
-}
-body.call .poof {
-  top: -4px;
-}
-
-body.watching .wizard {
+body.watching .stage {
   filter: grayscale(1) brightness(1.1);
   opacity: 0.4;
+}
+body.call .wizard {
   cursor: default;
 }
 
@@ -118,6 +115,7 @@ body.watching .wizard {
 
 .bubble {
   position: absolute;
+  z-index: 10; /* in front of the wand's sparkles */
   top: 6px;
   right: 168px;
   width: 252px;
