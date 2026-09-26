@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('wizard', {
   onState: (cb) => ipcRenderer.on('wizard:state', (_e, state) => cb(state)),
+  onCharacter: (cb) => ipcRenderer.on('wizard:character', (_e, character) => cb(character)),
   pickFile: () => ipcRenderer.send('wizard:pick-file'),
   dismissBubble: () => ipcRenderer.send('wizard:dismiss-bubble'),
   endCall: () => ipcRenderer.send('wizard:end-call'),

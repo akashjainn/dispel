@@ -2,10 +2,15 @@
 
 const $ = (id) => document.getElementById(id);
 
-// Back to front, as in focus-wizard: pot, wizard, wand, poof.
+// Back to front, as in focus-wizard: pot, wizard (or witch), wand, poof.
 const stage = new Stage($('stage'));
 const potLayer = stage.add('../../Assets/pot-sheet.png', emptyPot);
-const wizardLayer = stage.add('../../Assets/wizard-sprites.png', noStewShadow);
+const wizardLayer = stage.add(
+  { wizard: '../../Assets/wizard-sprites.png', witch: '../../Assets/witch-sprites.png' },
+  noStewShadow,
+);
+// Main passes the saved character in the page URL so the first frame is right.
+wizardLayer.use(new URLSearchParams(location.search).get('character'));
 const wandLayer = stage.add('../../Assets/wand-hand.png');
 const poofLayer = stage.add('../../Assets/wizard-poof.png');
 
@@ -196,7 +201,34 @@ const states = {
   },
 };
 
+// Wizard <-> witch: sink into the hat, swap sheets, rise out with a poof, then
+// carry on with whatever loop was playing. When hidden, just swap, so the next
+// appearance is the new character. A state change mid-morph cuts it short.
+let morphTo = null;
+window.wizard.onCharacter((character) => {
+  if (mode === 'hidden' || mode === 'vanish') {
+    wizardLayer.use(character);
+    return;
+  }
+  const resume = wizardLayer.loop;
+  morphTo = character;
+  wizardLayer.play(WIZARD.vanish, 20, {
+    once: true,
+    onDone: () => {
+      finishMorph();
+      poof();
+      wizardLayer.play(WIZARD.appear, 20, { once: true, onDone: () => resume && wizardLayer.play(resume.frames, resume.fps) });
+    },
+  });
+});
+
+function finishMorph() {
+  if (morphTo) wizardLayer.use(morphTo);
+  morphTo = null;
+}
+
 window.wizard.onState((state) => {
+  finishMorph();
   mode = state.mode;
   states[state.mode]?.(state);
 });

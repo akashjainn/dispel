@@ -8,7 +8,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | `app/` | Wizard app: menu-bar wizard, file check, call watch (mock results) | david-frontend | `server/` for real scores |
-| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | Demo answers 70% likely synthetic / 30% likely real; calls checked by the server too | israel/mock-verdict-mix | weights on the Vultr volume (server serves mock until then) |
+| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | Witch character (right-click → Turn into a witch), saved per install | israel/witch-skin | weights on the Vultr volume (server serves mock until then) |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
@@ -23,10 +23,12 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Israel → David: review the `app/` part of israel/app-server-link (`src/main/analyzer.js`, new `src/main/config.js`, two lines in `main.js`).
 - Israel → Akash, David: approve INTERFACES.md 0.4 and the install-id decision in DECISIONS.md.
 - Israel → Akash, David: approve INTERFACES.md 0.5 (file-less call checks, 70/30 demo answers); David: review `app/src/main/analyzer.js` and one comment in `main.js` · israel/mock-verdict-mix
+- Israel → David: review the witch character in `app/` (new `Assets/witch-sprites.png`, `scripts/make_witch_sprites.py`, `src/main/prefs.js`; sprite layer can switch sheets) and the IPC note in INTERFACES.md · israel/witch-skin
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 17:31 · Israel (Claude) · app: witch character. Right-click (or tray) → "Turn into a witch/wizard" morphs via the sink-into-hat animation; choice saved in `<userData>/prefs.json`; tray icon and menu copy follow it. Witch sheet is generated from the wizard's frames (`app/scripts/make_witch_sprites.py`) so it lines up with the cauldron · israel/witch-skin
 - Sat 17:00 · Israel (Claude) · mock answers are now ~70% likely synthetic / 30% likely real (server and app mock); app sends call checks to the server with no file, falls back to the local mock; INTERFACES 0.5 · israel/mock-verdict-mix
 - Sat 12:15 · David · app: Learn mode (the wizard teaches what deepfakes are, common scams, and how to protect family), right-click menu on the wizard · david-frontend
 - Sat 11:40 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept Israel's 0.4 server, re-applied FUSION_PROFILE; hearsay/ml from the branch) · PR #8

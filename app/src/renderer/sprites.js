@@ -19,7 +19,9 @@ class Stage {
     this.pending = false;
   }
 
-  // recolor(ImageData) may edit the sheet's pixels once, after it loads.
+  // src is one sheet, or { key: src } for a layer that can switch sheets with
+  // use(key) (all load up front, so a switch never shows a blank frame).
+  // recolor(ImageData) may edit each sheet's pixels once, after it loads.
   add(src, recolor) {
     const layer = new SpriteLayer(this, src, recolor);
     this.layers.push(layer);
@@ -37,34 +39,56 @@ class Stage {
   }
 }
 
+// Loads a sheet into a canvas, recolored if asked. Calls done(canvas).
+function loadSheet(src, recolor, done) {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    if (recolor) {
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      recolor(data);
+      ctx.putImageData(data, 0, 0);
+    }
+    done(c);
+  };
+  img.onerror = () => console.error('[sprites] could not load', src);
+  img.src = src;
+}
+
 class SpriteLayer {
   constructor(stage, src, recolor) {
     this.stage = stage;
-    this.img = null; // a canvas once loaded (recolored if asked)
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0);
-      if (recolor) {
-        const data = ctx.getImageData(0, 0, c.width, c.height);
-        recolor(data);
-        ctx.putImageData(data, 0, 0);
-      }
-      this.img = c;
-      stage.requestDraw();
-    };
-    img.src = src;
+    const srcs = typeof src === 'string' ? { main: src } : src;
+    this.keys = Object.keys(srcs);
+    this.key = this.keys[0];
+    this.sheets = {}; // key -> canvas, once loaded
+    for (const [key, s] of Object.entries(srcs)) {
+      loadSheet(s, recolor, (c) => {
+        this.sheets[key] = c;
+        if (key === this.key) stage.requestDraw();
+      });
+    }
     this.frame = null; // [col, row] or null when hidden
     this.timer = null;
+    this.loop = null; // the last looping animation, { frames, fps }
+  }
+
+  // Switch to another sheet; the current animation carries on from the same frame.
+  use(key) {
+    if (!this.keys.includes(key) || key === this.key) return;
+    this.key = key;
+    this.stage.requestDraw();
   }
 
   draw(ctx) {
-    if (!this.frame || !this.img) return;
+    const img = this.sheets[this.key];
+    if (!this.frame || !img) return;
     const [col, row] = this.frame;
-    ctx.drawImage(this.img, col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H, ORIGIN_X, ORIGIN_Y, FRAME_W, FRAME_H);
+    ctx.drawImage(img, col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H, ORIGIN_X, ORIGIN_Y, FRAME_W, FRAME_H);
   }
 
   show(col, row) {
@@ -75,6 +99,7 @@ class SpriteLayer {
   // frames: [[col, row], ...]. Loops unless `once`; calls onDone after a once run.
   play(frames, fps, { once = false, onDone } = {}) {
     this.stop();
+    if (!once) this.loop = { frames, fps };
     let i = 0;
     this.show(...frames[0]);
     this.timer = setInterval(() => {
@@ -206,7 +231,9 @@ const row = (r, cols) => cols.map((c) => [c, r]);
 const BOB = [0, 1, 2, 3, 4, 3, 2, 1];
 
 // wizard-sprites.png rows: 0 idle, 1 smiling, 2 eyes closed, 3 sinking into
-// the hat, 4 hat with rising smoke.
+// the hat, 4 hat with rising smoke. witch-sprites.png has the same frames
+// (built from the wizard's by app/scripts/make_witch_sprites.py), so both use
+// this table.
 const WIZARD = {
   idle: row(0, BOB),
   happy: row(1, BOB),

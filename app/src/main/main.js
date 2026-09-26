@@ -8,6 +8,7 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, sh
 const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
+const { CHARACTERS, loadPrefs, savePrefs } = require('./prefs');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ASSETS = path.join(ROOT, 'Assets');
@@ -38,6 +39,7 @@ let bubble = false;
 let busy = false; // a file analysis is running
 let callSession = null; // { id, app, bounds, canEnd, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
+let character = 'wizard'; // wizard | witch, loaded from prefs.json once the app is ready
 
 // ---------- windows ----------
 
@@ -62,7 +64,7 @@ function createWizard() {
   });
   setWizardLevel('floating');
   wizard.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  wizard.loadFile(path.join(RENDERER, 'wizard.html'));
+  wizard.loadFile(path.join(RENDERER, 'wizard.html'), { query: { character } }); // no flash of the other one
   wizard.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   wizard.webContents.on('will-navigate', (e) => e.preventDefault());
 }
@@ -194,7 +196,7 @@ async function analyzeFile(filePath) {
 
 async function pickFile() {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Choose an audio file for the wizard',
+    title: `Choose an audio file for the ${character}`,
     properties: ['openFile'],
     filters: [{ name: 'Audio', extensions: [...AUDIO_EXTS].map((e) => e.slice(1)) }],
   });
@@ -347,9 +349,22 @@ function simulateCall() {
 
 // ---------- tray ----------
 
+// Switch between the wizard and the witch. The renderer swaps sprite sheets
+// under a poof; the choice is saved for the next launch.
+function setCharacter(next) {
+  if (!CHARACTERS.includes(next) || next === character) return;
+  character = next;
+  savePrefs({ ...loadPrefs(), character });
+  wizard.webContents.send('wizard:character', character);
+  tray.setImage(trayIcon());
+  tray.setToolTip(`Dispel ${character}`);
+}
+
+const otherCharacter = () => (character === 'wizard' ? 'witch' : 'wizard');
+
 function trayIcon() {
-  // Wizard's face from the first idle frame, sized for the menu bar.
-  const sheet = nativeImage.createFromPath(path.join(ASSETS, 'wizard-sprites.png'));
+  // The character's face from the first idle frame, sized for the menu bar.
+  const sheet = nativeImage.createFromPath(path.join(ASSETS, `${character}-sprites.png`));
   const face = sheet.crop({ x: 20, y: 16, width: 48, height: 48 });
   const icon = nativeImage.createEmpty();
   icon.addRepresentation({ scaleFactor: 1, buffer: face.resize({ width: 18, height: 18, quality: 'best' }).toPNG() });
@@ -359,9 +374,10 @@ function trayIcon() {
 
 function trayMenu() {
   return Menu.buildFromTemplate([
-    { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
+    { label: wizardVisible ? `Send ${character} away` : `Summon ${character}`, click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
     { label: 'Learn about deepfakes', click: () => learn() },
+    { label: `Turn into a ${otherCharacter()}`, click: () => setCharacter(otherCharacter()) },
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -381,7 +397,7 @@ function trayMenu() {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('Dispel wizard');
+  tray.setToolTip(`Dispel ${character}`);
   tray.on('click', toggleWizard);
   // Audio files can also be dropped on the menu-bar icon (macOS).
   tray.on('drop-files', (_e, files) => {
@@ -408,13 +424,14 @@ function registerIpc() {
 
   ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
 
-  // Right-click on the wizard.
+  // Right-click on the wizard (or witch).
   ipcMain.on('wizard:context-menu', () => {
     Menu.buildFromTemplate([
       { label: 'Check an audio file…', click: pickFile, enabled: !busy },
       { label: 'Learn about deepfakes', click: () => learn() },
+      { label: `Turn into a ${otherCharacter()}`, click: () => setCharacter(otherCharacter()) },
       { type: 'separator' },
-      { label: 'Send wizard away', click: dismiss, enabled: !callSession },
+      { label: `Send ${character} away`, click: dismiss, enabled: !callSession },
     ]).popup({ window: wizard });
   });
 
@@ -455,6 +472,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.whenReady().then(() => {
   if (process.platform === 'darwin') app.dock.hide();
   desktopAnchor = defaultAnchor();
+  character = loadPrefs().character;
   createWizard();
   createOverlay();
   createTray();
