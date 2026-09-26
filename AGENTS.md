@@ -76,7 +76,7 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
   defined only in `docs/INTERFACES.md`.
 - The UI must work against `docs/examples/analyze_response.example.json` before
   the real model is connected.
-- Audio capture happens only when the user asks, over a short window
+- Audio capture happens over a short window in the initial call.
   (e.g. "check the last 15 s"). **Never** record continuously, and never store
   or upload audio without an explicit user action.
 - **Inference and the API run on Vultr** (decided Sat, see DECISIONS.md). The
