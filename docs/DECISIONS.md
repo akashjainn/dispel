@@ -50,3 +50,14 @@
   server replacement) with result metadata only: never audio, file names or transcripts. `GET /history` returns an
   install's own rows. The id groups checks; it is not authentication. The app's bearer key ships inside the app, so treat
   it as a speed bump, not a secret. (israel/app-server-link)
+- **Sat 04:10. Release v3p6 (supersedes v3p):** six analyzers fused additively: v3, LFCC-LCNN, prosody, spectral,
+  voice (formant movement + pitch-loudness coupling), rhythm. Out-of-fold minDCF on DiffSSD val: clean 0.000,
+  ffmpeg stretch 0.008, librosa stretch 0.085 (v3 alone 0.010 / 0.032 / 0.392). Spectral flatness and formant
+  bandwidth B2 are excluded because they differ between NSA's ffmpeg-resampled real clips and ours. All 242 NSA
+  LJRealResampled clips score like our validation reals (none near the threshold).
+- **Sat 04:10. Two fusion profiles:** `nsa` (all six) for the TSV; `app` (v3 + prosody) for the server, because on
+  the teammate check the six-way fusion ranked worse: AUC 0.935 vs 0.992 for the `app` profile, both refit on the v3
+  epoch-2 checkpoint (the earlier 0.98 above is v3p on the epoch-1 checkpoint). Details in ml/README.md.
+- **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
+  v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
+  (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
