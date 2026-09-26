@@ -1,22 +1,73 @@
 {
-  "version": "0.1",
+  "version": "0.3",
   "clip_id": "00000000-0000-0000-0000-000000000000",
   "duration_s": 12.0,
-  "input": { "sample_rate": 48000, "channels": 2, "codec": "opus" },
-  "model": { "name": "v2e", "release": "mock" },
-  "overall": { "llr": 2.1, "prior": 0.5, "probability": 0.891, "verdict": "likely_synthetic" },
+  "input": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "codec": "opus"
+  },
+  "model": {
+    "name": "v3p",
+    "release": "mock"
+  },
+  "overall": {
+    "llr": 2.1,
+    "prior": 0.5,
+    "probability": 0.891,
+    "verdict": "likely_synthetic"
+  },
   "segments": [
-    { "start_s": 0.0, "end_s": 4.0, "llr": -1.8, "probability": 0.142 },
-    { "start_s": 4.0, "end_s": 8.0, "llr": 3.9, "probability": 0.980 },
-    { "start_s": 8.0, "end_s": 12.0, "llr": 3.2, "probability": 0.961 }
+    {
+      "start_s": 0.0,
+      "end_s": 4.0,
+      "llr": -1.8,
+      "probability": 0.142
+    },
+    {
+      "start_s": 4.0,
+      "end_s": 8.0,
+      "llr": 3.9,
+      "probability": 0.98
+    },
+    {
+      "start_s": 8.0,
+      "end_s": 12.0,
+      "llr": 3.2,
+      "probability": 0.961
+    }
   ],
-  "manipulation": { "type": "unknown", "confidence": 0.0 },
-  "channel": { "bandwidth_hz": 7800, "phone_like": false, "note": "wideband, lightly compressed" },
+  "analyzers": [
+    {
+      "name": "dl_detector",
+      "ran": true,
+      "finding": "Neural detector score +2.4 over 3 window(s) of 4 s.",
+      "llr_contribution": 1.6,
+      "ms": 2100
+    },
+    {
+      "name": "prosody",
+      "ran": true,
+      "finding": "Prosody: pitch range much lower than real speech; moment-to-moment pitch movement lower than real speech; loudness roughness (shimmer) lower than real speech; pitch roughness (jitter) typical of real speech.",
+      "llr_contribution": 0.5,
+      "ms": 140
+    }
+  ],
+  "manipulation": {
+    "type": "unknown",
+    "confidence": 0.0
+  },
+  "channel": {
+    "bandwidth_hz": 7800,
+    "phone_like": false,
+    "note": "wideband, lightly compressed"
+  },
   "transcript": "MOCK: example transcript text.",
   "limitations": [
     "Segments 2–3 score much higher than segment 1, which could mean a splice. This is a lead to check, not proof.",
     "This model has not been validated on every commercial voice generator.",
     "A single 'likely synthetic' result is not proof on its own. Corroborate it with the source and context."
   ],
-  "timing_ms": 850
+  "timing_ms": 850,
+  "pipeline_version": "0.3"
 }

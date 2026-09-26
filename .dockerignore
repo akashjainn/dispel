@@ -1,0 +1,11 @@
+.git
+app/
+node_modules/
+data/
+models/
+datasets/
+**/__pycache__
+**/*.wav
+**/*.mp3
+**/*.pt
+.env

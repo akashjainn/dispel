@@ -1,0 +1,17 @@
+# API server + hearsay pipeline (CPU). The same image runs the NSA TSV:
+#   docker run --rm -v <weights>:/models:ro -v <test_dir>:/data:ro -v <out>:/out <image> \
+#     python -m hearsay predict /data -o /out/<Team>_predictions.tsv --template /data/<template>.tsv
+FROM python:3.13-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /srv
+RUN pip install --no-cache-dir torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+COPY server/requirements.txt server/requirements-ml.txt server/
+RUN pip install --no-cache-dir -r server/requirements.txt -r server/requirements-ml.txt
+COPY hearsay hearsay
+COPY server server
+COPY docs/examples docs/examples
+ENV PYTHONPATH=/srv MODEL_DIR=/models
+WORKDIR /srv/server
+EXPOSE 8765
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8765"]

@@ -1,0 +1,62 @@
+#cloud-config
+package_update: true
+packages: [git, curl, ca-certificates]
+write_files:
+  - path: /opt/dispel/.env
+    permissions: "0600"
+    content: |
+      API_KEY=${api_key}
+      MODEL_DIR=/models
+      DEVICE=${device}
+  - path: /opt/dispel/compose.prod.yml
+    content: |
+      services:
+        server:
+          build:
+            context: /opt/dispel/repo
+            dockerfile: docker/Dockerfile.server
+          env_file: /opt/dispel/.env
+          volumes:
+            - /opt/dispel/models:/models:ro
+          restart: unless-stopped
+        caddy:
+          image: caddy:2
+          ports: ["80:80", "443:443"]
+          volumes:
+            - /opt/dispel/Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy_data:/data
+          restart: unless-stopped
+      volumes:
+        caddy_data:
+  - path: /opt/dispel/deploy.sh
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      set -e
+      cd /opt/dispel
+      [ -d repo ] || git clone ${repo_url} repo
+      git -C repo fetch -q origin "${git_ref}"
+      git -C repo checkout -q --force FETCH_HEAD
+      IP=$(curl -s http://169.254.169.254/v1/interfaces/0/ipv4/address)
+      HOST="${domain}"
+      [ -n "$HOST" ] || HOST="$(echo $IP | tr . -).sslip.io"
+      printf '%s {\n  reverse_proxy server:8765\n  request_body {\n    max_size 26MB\n  }\n}\n' "$HOST" > Caddyfile
+      docker compose -f compose.prod.yml up -d --build
+      docker image prune -f >/dev/null
+  - path: /opt/dispel/setup-deploy-user.sh
+    permissions: "0700"
+    content: |
+      #!/bin/sh
+      set -e
+      # CI logs in as `deploy`; its key may only run deploy.sh (no shell, no forwarding).
+      id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
+      install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+      printf 'restrict,command="/opt/dispel/deploy.sh" %s\n' '${deploy_public_key}' > /home/deploy/.ssh/authorized_keys
+      chown deploy:deploy /home/deploy/.ssh/authorized_keys
+      chmod 600 /home/deploy/.ssh/authorized_keys
+      chown -R deploy:deploy /opt/dispel
+runcmd:
+  - mkdir -p /opt/dispel/models
+  - curl -fsSL https://get.docker.com | sh
+  - /opt/dispel/deploy.sh
+  - /opt/dispel/setup-deploy-user.sh
