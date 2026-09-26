@@ -39,3 +39,6 @@
 - **Sat 04:10. Two fusion profiles:** `nsa` (all six) for the TSV; `app` (v3 + prosody) for the server, because on
   the teammate check the six-way fusion ranked worse: AUC 0.935 vs 0.992 for the `app` profile, both refit on the v3
   epoch-2 checkpoint (the earlier 0.98 above is v3p on the epoch-1 checkpoint). Details in ml/README.md.
+- **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
+  v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
+  (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.

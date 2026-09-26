@@ -66,6 +66,27 @@ All 242 clips in NSA's `LJRealResampled.zip` scored through each fused system (f
 they land where our validation LJ reals do (all 6: median LLR -16.7 vs -16.6), none is above the cost-optimal
 threshold, and none is above the lowest 1% of same-voice fakes. The > 5.5 kHz spectral features therefore stay.
 
+## v4 (2026-09-26 morning): new generators, warm start from v3
+v4 = v3's best checkpoint trained ~3 h more with 111 ElevenLabs stock-voice clips (Flash v2.5, Turbo v2.5,
+Multilingual v2) and 736 Kokoro clips added as 10% of the fake sampling mass (`scratch/train/train_v4.py`).
+Best checkpoint = its first epoch (DiffSSD val selection 0.0203 vs v3 0.0208). On data neither model trained on
+(caught = share of fakes above the 1% false-alarm threshold on DiffSSD validation reals):
+
+| test set | clean: v3 -> v4 | ffmpeg stretch + noise: v3 -> v4 |
+|---|---|---|
+| ElevenLabs eleven_v3 (55, frontier model) | 100% -> 100% | 89% -> 100% |
+| ElevenLabs multilingual_v2 (27) | 100% -> 100% | 37% -> 85% |
+| held-out ElevenLabs stock voices (28) | 100% -> 100% | 75% -> 100% |
+| held-out Kokoro voices (70) | 100% -> 100% | 93% -> 97% |
+| teammates' consented clones (20) | 30% -> 65% | 10% -> 35% |
+| teammates' real recordings flagged (20) | 0% -> 0% | 0% -> 0% |
+
+Release `v4p6` (v4 + the same five other analyzers) fused on validation: clean 0.000, ffmpeg 0.007, librosa 0.088.
+NSA's 242 real LJ clips: median LLR -18.4, max -8.8, none above 0. Teammate AUC: `nsa` profile 0.948, `app` 1.000.
+
+DiffSSD official test split (41,113 clips, clean, v3, scored once): minDCF 0.0068; the three generators absent from
+training (DiffGAN-TTS, PlayHT, UnitSpeech) 0.0016 / 0.0020 / 0.0012.
+
 ## Two fusion profiles: DiffSSD-like audio vs unfamiliar voices
 The six-analyzer fusion is the best system on DiffSSD-style audio (the NSA task), but it transferred worse to the
 teammate check (20 real laptop-mic recordings + 20 consented ElevenLabs clones of the same two people; evaluation

@@ -12,7 +12,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
-- Model: v3p6 (six analyzers; nsa/app profiles), see DECISIONS.md and ml/README.md. Calibration on new voices is a known gap.
+- Model: v4p6 (six analyzers; nsa/app profiles), see DECISIONS.md and ml/README.md. Calibration on new voices is a known gap.
 - Live server: see the latest `infra` run summary or `terraform output base_url` (the URL changes when the server is replaced). Deploys to it are automatic on merge to `main`.
 - Server: loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; otherwise `/analyze` returns the mock example (`mock: true`). Weights still need to be rsynced to the Vultr instance.
 - App: not started.
@@ -22,6 +22,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 09:10 · Akash (Claude overnight) · v4 trained, release v4p6 on the PC (data/release/v4p6); DiffSSD test-split result; ml/README v4 table · PR #8
 - Sat 05:00 · Akash · PR #8 review fixes: bounded audio decode, model.name format documented, LFCC model defined once, docs · PR #8
 - Sat 04:10 · Akash · six analyzers (lfcc, spectral, voice, rhythm added), nsa/app fusion profiles, ablation + NSA-reals safety check in ml/README.md · akash/hearsay-pipeline
 - Sat 02:50 · Akash · hearsay/ pipeline (v3 + prosody fusion, TSV writer/validator), server wired to it (mock when no weights), CPU torch in Dockerfile.server, INTERFACES 0.3 · akash/hearsay-pipeline
