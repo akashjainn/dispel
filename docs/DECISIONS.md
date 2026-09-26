@@ -78,3 +78,8 @@
   judge's laptop (Teams/FaceTime links; Discord by hand), play a prepared clip into BlackHole as the call's mic, and
   optionally switch OBS to a matching deepfake video. Demo prop only; not part of the product or the server. Clips are
   gitignored. Voices must be consented clones or published dataset clips, not new deepfakes of real public figures.
+- **Sat 18:45. Call checks: one-time opt-in (David, app; supersedes "on request only" above):** on the first detected
+  call the wizard asks once, "Check my calls automatically?". "Yes, always" saves `autoCheckCalls: true` and from then
+  on every call is checked as it starts (12 s, "Listening…" bubble shown while recording, clip deleted after the
+  server answers). "Only when I ask" saves false: checks only from the tray or ⌘⇧L. Closing the bubble leaves it
+  unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.

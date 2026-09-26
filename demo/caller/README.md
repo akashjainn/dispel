@@ -2,7 +2,7 @@
 
 An iPhone remote that makes a prepared "caller" phone the judge's laptop on
 Teams, FaceTime or Discord and speak a deepfake (or a real control clip). The
-judge's laptop runs the Dispel wizard; they click **Listen** and see the verdict.
+judge's laptop runs the Dispel wizard, which checks the call as it starts and shows the verdict.
 
 ```
 iPhone (Safari / home-screen app)  ──tap──▶  caller laptop: npm start
@@ -11,7 +11,7 @@ iPhone (Safari / home-screen app)  ──tap──▶  caller laptop: npm start
                                              └─ switches OBS to the caller's video scene (optional)
                                                      │ a real call
                                                      ▼
-                                             judge's laptop: Dispel wizard → Listen → verdict
+                                             judge's laptop: Dispel wizard listens 12 s → verdict
 ```
 
 This is a demo prop, not part of the product. It runs only on the caller
@@ -68,11 +68,15 @@ convincing call looks like; don't claim Dispel checks the video.
 
 ## Demo run
 
-1. Judge's laptop: `cd app && npm start`, server configured in `config.local.json`.
-2. Phone: pick Teams, tap **Call on Teams**; answer on the judge's laptop. The
-   wizard pops up: "You're on a call in Microsoft Teams. Want me to listen?"
-3. Phone: tap **Your boss**. On the judge's laptop, click **Listen** (or ⌘⇧L).
-4. After about 12 s plus the server check, the wizard shows its verdict. A
+1. Before the demo, on the judge's laptop: `cd app && npm start` with the server
+   in `config.local.json`. Make one test call and answer **Yes, always** to
+   "Check my calls automatically?" (or tick it in Settings). It never asks again.
+2. Phone: pick Teams, tap **Call on Teams**; answer on the judge's laptop.
+3. **Right after the call connects**, tap **Your boss** on the phone. The wizard
+   starts its 12 s listen as soon as the call is detected, so the clip must be
+   playing then. If you're late, press ⌘⇧L on the judge's laptop (or "Listen
+   again") to check once more.
+4. After the 12 s plus the server check, the wizard shows its verdict. A
    likely-synthetic call gets the purple ring, "end the call?", and "Notify my
    manager".
 5. Phone: **Hang up**, then repeat with **Real voice (control)**.

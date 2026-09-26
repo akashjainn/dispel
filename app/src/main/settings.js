@@ -3,12 +3,15 @@
 //
 // mode: "personal" (alerts go to a trusted contact) or "business" (to a manager).
 // contact: who "Notify" texts. handle is a phone number or an iMessage email.
+// autoCheckCalls: the user's one-time answer to "Check my calls automatically?"
+//   null = not asked yet (the wizard asks on the first call), true = listen to
+//   the first 12 s of every call, false = only when asked (tray, Cmd+Shift+L).
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
 
-const DEFAULTS = { mode: 'personal', contact: { name: '', handle: '' } };
+const DEFAULTS = { mode: 'personal', contact: { name: '', handle: '' }, autoCheckCalls: null };
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -24,7 +27,8 @@ function clean(input) {
   const mode = input?.mode === 'business' ? 'business' : 'personal';
   const name = typeof input?.contact?.name === 'string' ? input.contact.name.trim().slice(0, 60) : '';
   const handle = typeof input?.contact?.handle === 'string' ? input.contact.handle.trim().slice(0, 120) : '';
-  return { mode, contact: { name, handle } };
+  const autoCheckCalls = typeof input?.autoCheckCalls === 'boolean' ? input.autoCheckCalls : null;
+  return { mode, contact: { name, handle }, autoCheckCalls };
 }
 
 function loadSettings() {

@@ -102,6 +102,21 @@ section {
   border-color: var(--purple);
 }
 
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--purple);
+}
+
 .status {
   min-height: 1.4em;
   margin: 0 0 10px;

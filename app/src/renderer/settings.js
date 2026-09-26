@@ -1,4 +1,4 @@
-// Settings window: personal vs work, and who "Notify" texts.
+// Settings window: personal vs work, who "Notify" texts, and automatic call checks.
 const $ = (id) => document.getElementById(id);
 
 const COPY = {
@@ -15,7 +15,10 @@ const COPY = {
 };
 
 const mode = () => document.querySelector('input[name="mode"]:checked')?.value ?? 'personal';
-const current = () => ({ mode: mode(), contact: { name: $('name').value, handle: $('handle').value } });
+// Automatic call checks stay "not asked yet" (null) until the user answers the
+// wizard or touches the checkbox here.
+let autoCheck = null;
+const current = () => ({ mode: mode(), contact: { name: $('name').value, handle: $('handle').value }, autoCheckCalls: autoCheck });
 
 function showMode() {
   const c = COPY[mode()];
@@ -35,6 +38,7 @@ async function save() {
   return res.ok;
 }
 
+$('auto-check').addEventListener('change', () => (autoCheck = $('auto-check').checked));
 document.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListener('change', showMode));
 
 $('save').addEventListener('click', async () => {
@@ -55,5 +59,7 @@ window.settings.get().then((s) => {
   document.querySelector(`input[name="mode"][value="${s.mode}"]`).checked = true;
   $('name').value = s.contact.name;
   $('handle').value = s.contact.handle;
+  autoCheck = s.autoCheckCalls;
+  $('auto-check').checked = s.autoCheckCalls === true;
   showMode();
 });

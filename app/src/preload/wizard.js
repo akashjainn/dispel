@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('wizard', {
   dismissBubble: () => ipcRenderer.send('wizard:dismiss-bubble'),
   endCall: () => ipcRenderer.send('wizard:end-call'),
   listen: () => ipcRenderer.send('wizard:listen'),
+  autoCheck: (yes) => ipcRenderer.send('wizard:auto-check', yes),
   notify: () => ipcRenderer.send('wizard:notify'),
   learn: (topic) => ipcRenderer.send('wizard:learn', topic),
   contextMenu: () => ipcRenderer.send('wizard:context-menu'),

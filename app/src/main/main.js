@@ -331,7 +331,7 @@ function openSettings() {
   }
   settingsWin = new BrowserWindow({
     width: 420,
-    height: 480,
+    height: 600,
     resizable: false,
     minimizable: false,
     fullscreenable: false,
@@ -379,16 +379,35 @@ function onCallStarted({ app: callApp, bounds, canEnd, front, prefixes }) {
   if (fileBubbleUp) {
     setWizardLevel('screen-saver');
     placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
-  } else setMode('call-listen', { ...listenPayload(callSession, 'offer'), appear: !wizard.isVisible() });
+  } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
+
+  // Asked once, ever: "Check my calls automatically?" After "Yes, always",
+  // every call is checked as it starts; after "Not now", only on request.
+  const auto = loadSettings().autoCheckCalls;
+  if (auto === true) listenToCall();
+  else if (auto === null && !fileBubbleUp) {
+    setMode('call-listen', { ...listenPayload(callSession, 'offer'), appear: !wizard.isVisible() });
+  }
+}
+
+// Answer to the one-time question. Saved, so the wizard never asks again
+// (Settings can change it).
+function answerAutoCheck(yes) {
+  const res = saveSettings({ ...loadSettings(), autoCheckCalls: yes });
+  if (!res.ok) console.error('[settings]', res.error);
+  if (!callSession) return;
+  if (yes) listenToCall();
+  else showCallMode();
 }
 
 function listenPayload(s, step, extra = {}) {
   return { app: s.app, step, seconds: LISTEN_SECONDS, ...extra };
 }
 
-// The user asked the wizard to listen (bubble button, tray, or the shortcut).
-// Records a few seconds of the call, sends it to our server, and shows the
-// verdict. Nothing is recorded unless the user asks (AGENTS.md).
+// Checks the call: as it starts once the user has opted in, or on request
+// (tray, the shortcut, "Listen again"). Records 12 s, sends it to our server,
+// and shows the verdict. The "Listening" bubble is up the whole time it
+// records. Nothing is recorded without that consent (AGENTS.md).
 async function listenToCall() {
   const s = callSession;
   if (!s || s.listening || s.ending) return;
@@ -583,6 +602,9 @@ function registerIpc() {
 
   ipcMain.on('wizard:end-call', () => endCall());
   ipcMain.on('wizard:listen', () => listenToCall());
+  ipcMain.on('wizard:auto-check', (_e, yes) => {
+    if (typeof yes === 'boolean' && mode === 'call-listen') answerAutoCheck(yes);
+  });
   ipcMain.on('wizard:notify', () => notifyContact());
 
   // Settings IPC answers only the settings window.

@@ -16,6 +16,7 @@ const COPY = {
 };
 const DIGIT_ROW = { inconclusive: 0, likely_synthetic: 1, likely_real: 2 };
 let mode = 'hidden';
+let listenStep = null; // call-listen step, so its buttons know what they answer
 
 // ---------- drawing helpers ----------
 
@@ -178,9 +179,10 @@ const states = {
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
-  // Asking to listen to a call, listening, checking, and the answer (unless
-  // it's likely synthetic: that's call-alert). Only a click starts a recording.
+  // The one-time "check calls automatically?" question, listening, checking,
+  // and the answer (unless it's likely synthetic: that's call-alert).
   'call-listen'({ app, step, seconds, result, error, appear }) {
+    listenStep = step;
     setBody('call');
     wand(step === 'listening' || step === 'checking');
     potLayer.play(POT.bubble, step === 'checking' ? 12 : 6);
@@ -188,13 +190,16 @@ const states = {
     if (step === 'offer') {
       enter(appear, () => wizardLayer.play(WIZARD.idle, 6));
       showBubble({
-        title: `You’re on a call in ${app}.`,
-        note: 'I only listen when you ask. The clip goes to our server to be checked, then it’s deleted.',
-        ask: { text: `Want me to listen to the caller for ${seconds} seconds?`, yes: true, yesLabel: 'Listen', noLabel: 'Not now' },
+        title: 'Check my calls automatically?',
+        note: `I’ll listen to the first ${seconds} seconds of each call and send it to our server to check. It’s deleted after. I’ll only ask once; change it in Settings.`,
+        ask: { text: '', yes: true, yesLabel: 'Yes, always', noLabel: 'Only when I ask' },
       });
     } else if (step === 'listening') {
       wizardLayer.play(WIZARD.focus, 8);
-      showBubble({ title: `Listening to ${app}…`, note: `About ${seconds} seconds. Keep the caller talking.` });
+      showBubble({
+        title: `Listening to ${app}…`,
+        note: `About ${seconds} seconds. The clip goes to our server to be checked, then it’s deleted.`,
+      });
     } else if (step === 'checking') {
       wizardLayer.play(WIZARD.focus, 8);
       showBubble({ title: 'Consulting the cauldron…', note: 'Checking the clip on our server.' });
@@ -247,8 +252,14 @@ window.wizard.onState((state) => {
 // ---------- input: click to choose a file, drag to move, drop to analyze ----------
 
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
-$('ask-yes').addEventListener('click', () => (mode === 'call-listen' ? window.wizard.listen() : window.wizard.endCall()));
-$('ask-no').addEventListener('click', () => window.wizard.dismissBubble());
+$('ask-yes').addEventListener('click', () => {
+  if (mode !== 'call-listen') window.wizard.endCall();
+  else if (listenStep === 'offer') window.wizard.autoCheck(true);
+  else window.wizard.listen();
+});
+$('ask-no').addEventListener('click', () =>
+  mode === 'call-listen' && listenStep === 'offer' ? window.wizard.autoCheck(false) : window.wizard.dismissBubble(),
+);
 $('notify-btn').addEventListener('click', () => window.wizard.notify());
 $('learn-more').addEventListener('click', () => window.wizard.learn('scams'));
 $('lesson-back').addEventListener('click', () => {

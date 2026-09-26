@@ -17,9 +17,10 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
   still work. The warning bubble (which has buttons) opens in the top-right
   corner instead, away from the End button. The wizard and the colored outline hide while another app
   is in front and come back when you return to the call.
-- **Listen to a call:** when a call starts, the wizard asks "Want me to listen
-  to the caller for 12 seconds?" Only **Listen** (or tray → "Listen to this
-  call", or ⌘⇧L during a call) records anything. It records what the call app
+- **Checking calls:** on the first call, the wizard asks once, "Check my calls
+  automatically?" After **Yes, always**, every call is checked as it starts;
+  after **Only when I ask**, use tray → "Listen to this call" or ⌘⇧L during a
+  call. Change it in Settings. A check records 12 s of what the call app
   plays (the other person, not your mic), sends the clip to our server, and
   deletes it. The first time, macOS asks to allow **System Audio Recording**; if
   it's denied, the wizard says it couldn't hear anything. If the voice scores likely real, the call
