@@ -86,8 +86,8 @@ def require_key(authorization: str | None = Header(default=None)) -> None:
 
 
 def _weights_present() -> bool:
-    d = _model_dir()
-    return bool(d) and d.is_dir() and any(d.iterdir())
+    d = _model_dir()  # lost+found etc.: a freshly formatted volume is not "weights found"
+    return bool(d) and d.is_dir() and any(p.name != "lost+found" and not p.name.startswith(".") for p in d.iterdir())
 
 
 LANDING = """<!doctype html>

@@ -48,3 +48,11 @@ def test_health_reports_mock_without_weights(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("MODEL_DIR", raising=False)
     body = client.get("/health").json()
     assert body["mock"] is True and body["model"] == "mock"
+
+
+def test_empty_volume_is_not_weights(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MODEL_DIR", str(tmp_path))
+    (tmp_path / "lost+found").mkdir()
+    assert client.get("/health").json()["weights_found"] is False
+    (tmp_path / "v3p").mkdir()
+    assert client.get("/health").json()["weights_found"] is True
