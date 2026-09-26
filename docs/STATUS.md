@@ -26,6 +26,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 17:30 · David · app: tray "Results from": Server (default; files and calls per INTERFACES 0.5) or a fixed local mock (likely real / likely synthetic). Server reachable but still mock (weights_found: false) · david-frontend
 - Sat 17:30 · David · app: Settings window (Personal/Work, contact name + number), "Notify trusted contact"/"Notify my manager" button on flagged calls texts via Messages · david-frontend
 - Sat 17:00 · David · app: call wizard back inside the call window (bottom-right, 50% size, click-through); warning bubble opens top-right, clear of End · david-frontend
 - Sat 16:45 · David · app: during calls the wizard sits outside the call window (no longer covers End), wizard + ring hide when the call app isn't in front; calls already running at launch now enter call mode; --simulate-call ignores real calls · david-frontend

@@ -55,11 +55,15 @@ On first launch the app makes an anonymous install id (a random UUID in
 check, so the server can keep this install's history (`GET /history`). No
 account, nothing personal; delete the file to start over.
 
-With no server set, file checks use the local mock, and **calls always do**
-(no call audio is captured yet): it waits 2.5 s for a file or 3.5 s for a
-call, then reports **"likely real"** (2–14%). To demo the deepfake flow, pick
-tray menu → "Mock result (no model)" → "Likely synthetic" (86–98%), or start
-with `DISPEL_MOCK_VERDICT=synthetic npm start`.
+Tray menu → **Results from** picks where scores come from:
+- **Server** (default): files are uploaded to the server in
+  `config.local.json`; calls ask it without audio (none is captured yet), so
+  only a server still running demo data can answer them. Until the model
+  weights are on the server, its answers are demo data (`mock: true`, about
+  70% likely synthetic), and the bubble says so.
+- **Mock: likely real** (2–14%) or **Mock: likely synthetic** (86–98%): local
+  fixed answers for demos, after a 2.5 s (file) or 3.5 s (call) pause. Start
+  with one using `DISPEL_RESULTS=real npm start` or `DISPEL_RESULTS=synthetic`.
 
 ## Layout
 

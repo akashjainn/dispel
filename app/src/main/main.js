@@ -380,6 +380,12 @@ async function onCallStarted({ app: callApp, bounds, canEnd, front }) {
   // tray's "Mock result" switch).
   const result = await analyzer.analyze('call');
   if (callSession !== session) return; // call ended or restarted meanwhile
+  if (!result) {
+    // The server couldn't score it (no server set, or it's running the real
+    // model, which needs audio we don't capture yet). No verdict, no ring.
+    console.log('[call] no score from the server (pick a mock under "Results from" to demo)');
+    return;
+  }
   logResult({ source: 'call', name: callApp, result });
   session.result = result;
   if (result.overall.probability >= analyzer.SYNTHETIC_AT) {
@@ -491,12 +497,16 @@ function trayMenu() {
     },
     { label: callSession ? 'End simulated call' : 'Simulate a call (demo)', click: simulateCall },
     {
-      label: 'Mock result (no model)',
-      submenu: ['real', 'synthetic'].map((v) => ({
-        label: v === 'real' ? 'Likely real' : 'Likely synthetic',
+      label: 'Results from',
+      submenu: [
+        ['server', 'Server'],
+        ['real', 'Mock: likely real'],
+        ['synthetic', 'Mock: likely synthetic'],
+      ].map(([v, label]) => ({
+        label,
         type: 'radio',
-        checked: analyzer.getMockVerdict() === v,
-        click: () => analyzer.setMockVerdict(v),
+        checked: analyzer.getResultSource() === v,
+        click: () => analyzer.setResultSource(v),
       })),
     },
     { type: 'separator' },
