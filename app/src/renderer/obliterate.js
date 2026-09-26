@@ -19,6 +19,8 @@ const PAL = {
   pink: '#f6757a',
   gold: '#feae34',
   yellow: '#fee761',
+  orange: '#fe9e43', // the wand's star (wand-hand.png)
+  amber: '#fec841',
   white: '#ffffff',
   cloud: ['#a8b5b2', '#c7cfcc', '#ebede9'],
 };
@@ -51,8 +53,8 @@ window.spell.onShatter(() => {
 // ---------- setup ----------
 
 // cast: { from: {x, y}, rect: {x, y, width, height}, view: {width, height},
-// style: '2d' | '3d', snapshot: data URL | null }, all in window px.
-function start({ from, rect, view, style, snapshot }) {
+// style: '2d' | '3d' }, all in window px.
+function start({ from, rect, view, style }) {
   const pixel = style !== '3d';
   const k = pixel ? 0.5 : devicePixelRatio || 1; // canvas px per window px
   canvas.width = Math.round(view.width * k);
@@ -97,7 +99,6 @@ function start({ from, rect, view, style, snapshot }) {
     sprites: makeTileSprites(size, pixel),
     sparks: [],
     puffs: [],
-    snap: null,
     bolt: null,
     boltRolled: 0,
     start: performance.now(),
@@ -105,27 +106,11 @@ function start({ from, rect, view, style, snapshot }) {
     shatterAt: null,
     calm: reduceMotion.matches,
   };
-  if (snapshot) loadSnapshot(snapshot, current);
   requestAnimationFrame(frame);
 }
 
-// The call window's own pixels (only for the demo's simulated call, which is
-// our window), so the tiles are pieces of it.
-function loadSnapshot(url, s) {
-  const img = new Image();
-  img.onload = () => {
-    const c = Object.assign(document.createElement('canvas'), { width: Math.round(s.r.w), height: Math.round(s.r.h) });
-    const x = c.getContext('2d');
-    x.imageSmoothingEnabled = !s.pixel;
-    x.drawImage(img, 0, 0, c.width, c.height);
-    s.snap = c;
-  };
-  img.src = url;
-}
-
 // Crystal tiles: a lit face, a light top-left edge, a dark bottom-right edge.
-// Three stones (plum, slate, magenta) plus a white flash and, for snapshot
-// tiles, just the edges.
+// Three stones (plum, slate, magenta) plus a white flash.
 function makeTileSprites(size, pixel) {
   const stones = [
     [PAL.plum, PAL.magenta, PAL.ink],
@@ -172,10 +157,6 @@ function makeTileSprites(size, pixel) {
     flash: make((x) => {
       x.fillStyle = PAL.white;
       x.fillRect(0, 0, size, size);
-    }),
-    edges: make((x) => {
-      x.globalAlpha = 0.85;
-      edges(x, 'rgba(246,117,122,0.9)', PAL.ink, e);
     }),
   };
 }
@@ -293,7 +274,7 @@ function star(s, x, y, r, color, a = 1) {
 }
 
 function spark(s, x, y, vx, vy) {
-  s.sparks.push({ x, y, vx, vy, born: performance.now(), life: rand(500, 1000), color: pick([PAL.yellow, PAL.gold, PAL.pink, PAL.white]), size: rand(1.5, 3.5) * (s.pixel ? 1 : 2 * s.k) });
+  s.sparks.push({ x, y, vx, vy, born: performance.now(), life: rand(500, 1000), color: pick([PAL.yellow, PAL.gold, PAL.orange, PAL.white]), size: rand(1.5, 3.5) * (s.pixel ? 1 : 2 * s.k) });
 }
 
 // ---------- the frame ----------
@@ -332,7 +313,7 @@ function frame(now) {
 }
 
 function drawTiles(s, t) {
-  const { tiles, sprites, snap, r } = s;
+  const { tiles, sprites, r } = s;
   const glint = s.shatterAt == null && t > COVERED ? ((t - COVERED) / 750) % 1.6 - 0.3 : null;
   for (const tile of tiles) {
     if (t < tile.at) continue;
@@ -360,7 +341,7 @@ function drawTiles(s, t) {
       }
     }
     ctx.globalAlpha = a;
-    const img = snap ? null : sprites.stones[tile.variant];
+    const img = sprites.stones[tile.variant];
     if (s.pixel || !angle) {
       const w = s.pixel ? Math.max(1, Math.round(tile.w * scale)) : tile.w * scale;
       const h = s.pixel ? Math.max(1, Math.round(tile.h * scale)) : tile.h * scale;
@@ -387,13 +368,8 @@ function drawTiles(s, t) {
 }
 
 function paintTile(s, tile, img, x, y, w, h, since) {
-  const { sprites, snap } = s;
-  if (snap) {
-    ctx.drawImage(snap, tile.tx, tile.ty, tile.w, tile.h, x, y, w, h);
-    ctx.drawImage(sprites.edges, 0, 0, tile.w, tile.h, x, y, w, h);
-  } else {
-    ctx.drawImage(img, 0, 0, tile.w, tile.h, x, y, w, h);
-  }
+  const { sprites } = s;
+  ctx.drawImage(img, 0, 0, tile.w, tile.h, x, y, w, h);
   if (since < 90 && !s.calm) {
     const a = ctx.globalAlpha;
     ctx.globalAlpha = a * (1 - since / 90);
@@ -453,10 +429,11 @@ function drawBolt(s, t, now) {
     pts.push({ x: from.x + (impact.x - from.x) * b.f + b.nx * b.off, y: from.y + (impact.y - from.y) * b.f + b.ny * b.off });
   }
   pts.push({ x: hx, y: hy });
-  const widths = s.pixel ? [[5, PAL.magenta, 0.9], [3, PAL.pink, 1], [1, PAL.white, 1]] : [[12 * s.k, PAL.magenta, 0.55], [6 * s.k, PAL.pink, 0.9], [2.5 * s.k, PAL.white, 1]];
+  // The wand star's colors, so the bolt reads as coming out of that wand.
+  const widths = s.pixel ? [[5, PAL.orange, 1], [3, PAL.amber, 1], [1, PAL.white, 1]] : [[12 * s.k, PAL.orange, 0.55], [6 * s.k, PAL.amber, 0.9], [2.5 * s.k, PAL.white, 1]];
   if (!s.pixel) {
     ctx.save();
-    ctx.shadowColor = PAL.magenta;
+    ctx.shadowColor = PAL.gold;
     ctx.shadowBlur = 24 * s.k;
   }
   for (const [w, color, a] of widths) {
@@ -486,7 +463,7 @@ function drawImpact(s, t) {
     ctx.restore();
     ctx.globalAlpha = 1;
     ring(s, impact.x, impact.y, big * 0.7 * easeOut(u), s.pixel ? 2 : 5 * s.k, PAL.yellow, 1 - u);
-    ring(s, impact.x, impact.y, big * 0.45 * easeOut(u), s.pixel ? 1 : 3 * s.k, PAL.magenta, 1 - u);
+    ring(s, impact.x, impact.y, big * 0.45 * easeOut(u), s.pixel ? 1 : 3 * s.k, PAL.orange, 1 - u);
   }
   disk(s, impact.x, impact.y, (s.pixel ? 16 : 40 * s.k) * (1 - u), PAL.white, 1 - u);
 }

@@ -35,6 +35,14 @@ const AT = {
 };
 const WAND_DOWN = 44; // how far below its spot the wand starts, inside the pot
 
+// The wand star's own colors (wand-hand.png), brightest first: the wand's
+// magic is drawn in these so it looks like it comes out of that star.
+const WAND_STAR = ['#fee761', '#fec841', '#feae34', '#fe9e43'];
+
+// The wand's magic moves in steps, like hand-drawn frames, not smoothly.
+const STEP = 1000 / 12;
+const stepped = (ms) => Math.floor(ms / STEP) * STEP;
+
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
@@ -81,6 +89,32 @@ const draw = {
       c.fill();
     }
     c.globalAlpha = 1;
+  },
+
+  // The wand's star: long orange arms, a gold middle, a white core, and gold
+  // corners once it's big. r is the arm length in stage pixels.
+  wandStar(c, pixel, x, y, r) {
+    if (r <= 0) return;
+    const [yellow, amber, , orange] = WAND_STAR;
+    const X = pixel ? Math.round(x) : x;
+    const Y = pixel ? Math.round(y) : y;
+    const cross = (len, w, color) => {
+      c.fillStyle = color;
+      c.fillRect(X - len, Y - (w - 1) / 2, len * 2 + 1, w);
+      c.fillRect(X - (w - 1) / 2, Y - len, w, len * 2 + 1);
+    };
+    c.globalAlpha = 1;
+    if (!pixel) this.glow(c, false, x, y, r * 1.6, r * 1.6, amber, 0.55);
+    cross(r, 1, orange);
+    if (r >= 2) cross(Math.ceil(r / 2), r >= 4 ? 3 : 1, amber);
+    if (r >= 3) {
+      const d = Math.floor(r / 2);
+      c.fillStyle = yellow;
+      for (const [dx, dy] of [[-d, -d], [d, -d], [-d, d], [d, d]]) c.fillRect(X + dx, Y + dy, 1, 1);
+    }
+    cross(r >= 4 ? 1 : 0, 1, yellow);
+    c.fillStyle = PAL.white;
+    c.fillRect(X, Y, 1, 1);
   },
 
   // An ellipse outline (a flat ring on the pot's mouth, or a round shockwave).
@@ -142,17 +176,19 @@ const draw = {
 // ---------- effects: each is added to the stage and removes itself ----------
 
 const fx = {
-  // Calls fn(t) every frame for ms (t: 0..1), then done(). cancel() stops it quietly.
-  tween(stage, ms, fn, done) {
+  // Calls fn(t) every frame for ms (t: 0..1), then done(). cancel() stops it
+  // quietly. With fps, t moves in steps (a flip-book, like the sprites).
+  tween(stage, ms, fn, done, fps) {
     const start = performance.now();
     const f = {
       pass: 'under', // before the layers, so a moved layer draws in its new spot
       cancelled: false,
       draw(_c, now) {
         if (f.cancelled) return false;
-        const t = clamp01((now - start) / ms);
-        fn(t);
-        if (t < 1) return true;
+        const age = now - start;
+        const t = clamp01((fps ? Math.floor(age / (1000 / fps)) * (1000 / fps) : age) / ms);
+        fn(age >= ms ? 1 : t);
+        if (age < ms) return true;
         done?.();
         return false;
       },
@@ -210,17 +246,44 @@ const fx = {
     });
   },
 
-  // A bright star flaring at a point (the wand firing).
-  flare(stage, { x, y, r = 10, ms = 380, color = PAL.yellow }) {
+  // The wand's star flashing big and shrinking back, one frame at a time.
+  starPop(stage, { x, y, sizes = [2, 4, 6, 5, 3, 2, 1] }) {
     const born = performance.now();
     return stage.addFx({
-      pass: 'glow',
+      pass: 'over',
       draw(c, now, pixel) {
-        const t = (now - born) / ms;
-        if (t >= 1) return false;
-        draw.glow(c, pixel, x, y, r * (0.6 + t), r * (0.6 + t), color, (1 - t) * 0.9);
-        draw.star(c, pixel, x, y, r * (1.2 - t * 0.6), PAL.white, 1 - easeIn(t));
+        const i = Math.floor((now - born) / STEP);
+        if (i >= sizes.length) return false;
+        draw.wandStar(c, pixel, x, y, sizes[i]);
         return true;
+      },
+    });
+  },
+
+  // Specks of the wand's gold flying out of a point and falling, moved a
+  // frame at a time. dir/spread in radians aim it (default: all around).
+  spray(stage, { x, y, count = 12, speed = [20, 55], dir = null, spread = Math.PI, life = [380, 700] }) {
+    const born = performance.now();
+    const specks = Array.from({ length: count }, () => {
+      const a = dir == null ? rand(0, Math.PI * 2) : dir + rand(-spread / 2, spread / 2);
+      const v = rand(...speed);
+      return { vx: Math.cos(a) * v, vy: Math.sin(a) * v - 10, life: rand(...life), color: pick(WAND_STAR), big: Math.random() < 0.25 };
+    });
+    return stage.addFx({
+      pass: 'over',
+      draw(c, now, pixel) {
+        const age = stepped(now - born);
+        let alive = false;
+        for (const p of specks) {
+          if (age >= p.life) continue;
+          alive = true;
+          const sec = age / 1000;
+          const px = x + p.vx * sec;
+          const py = y + p.vy * sec + 40 * sec * sec;
+          if (p.big && age < p.life * 0.6) draw.star(c, pixel, px, py, 1, p.color);
+          else draw.dot(c, pixel, px, py, 0.5, p.color);
+        }
+        return alive;
       },
     });
   },
@@ -273,51 +336,40 @@ const fx = {
     });
   },
 
-  // Sparkles gathering into a point, and a growing orb there (the wand
-  // charging). stop() lets it go; at(x, y) moves it.
+  // Specks of gold drawn in to the wand's star, which grows and twinkles
+  // (the wand charging). Moves a frame at a time; stop() lets it go.
   charge(stage, x, y) {
     const born = performance.now();
-    const motes = [];
-    let lastSpawn = 0;
+    const specks = [];
+    let lastStep = -1;
     let stopped = false;
-    const f = stage.addFx({
-      pass: 'glow',
+    return stage.addFx({
+      pass: 'over',
       draw(c, now, pixel) {
         if (stopped) return false;
-        const age = now - born;
-        if (now - lastSpawn > 35) {
-          lastSpawn = now;
-          const a = rand(0, Math.PI * 2);
-          motes.push({ a, d: rand(14, 24), born: now, color: pick([PAL.yellow, PAL.gold, PAL.pink, PAL.white]) });
+        const step = Math.floor((now - born) / STEP);
+        if (step !== lastStep) {
+          lastStep = step;
+          for (let i = 0; i < 2; i++) specks.push({ a: rand(0, Math.PI * 2), d: rand(9, 15), step, color: pick(WAND_STAR) });
         }
-        for (let i = motes.length - 1; i >= 0; i--) {
-          const m = motes[i];
-          const t = (now - m.born) / 380;
+        for (let i = specks.length - 1; i >= 0; i--) {
+          const p = specks[i];
+          const t = (step - p.step) / 4; // four frames to reach the star
           if (t >= 1) {
-            motes.splice(i, 1);
+            specks.splice(i, 1);
             continue;
           }
-          const d = m.d * (1 - easeIn(t));
-          const a = m.a + t * 2.2; // spiral in
-          draw.dot(c, pixel, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 0.5, m.color, 0.4 + t * 0.6);
+          const d = p.d * (1 - t);
+          draw.dot(c, pixel, x + Math.cos(p.a) * d, y + Math.sin(p.a) * d, 0.5, p.color);
         }
-        const r = Math.min(5, 1 + age / 170) * (0.85 + 0.15 * Math.sin(now / 40));
-        draw.glow(c, pixel, f.x, f.y, r * 2.2, r * 2.2, PAL.magenta, 0.9);
-        draw.dot(c, pixel, f.x, f.y, r * 0.6, PAL.yellow);
-        draw.dot(c, pixel, f.x, f.y, r * 0.3, PAL.white);
+        const size = Math.min(4, 1 + Math.floor(step / 3));
+        draw.wandStar(c, pixel, x, y, step % 2 ? size : size - 1); // twinkle
         return true;
-      },
-      at(nx, ny) {
-        f.x = nx;
-        f.y = ny;
       },
       stop() {
         stopped = true;
       },
     });
-    f.x = x;
-    f.y = y;
-    return f;
   },
 };
 
@@ -351,12 +403,18 @@ class Presence {
     this.timers.add(id);
   }
 
-  tween(ms, fn, done) {
+  tween(ms, fn, done, fps) {
     const seq = this.seq;
-    const t = fx.tween(this.stage, ms, fn, () => {
-      this.tweens.delete(t);
-      if (seq === this.seq) done?.();
-    });
+    const t = fx.tween(
+      this.stage,
+      ms,
+      fn,
+      () => {
+        this.tweens.delete(t);
+        if (seq === this.seq) done?.();
+      },
+      fps,
+    );
     this.tweens.add(t);
     return t;
   }
@@ -475,9 +533,10 @@ class Presence {
       () => {
         wand.offset = { x: 0, y: 0 };
         wand.clipBelow = null;
-        this.stage.spark(AT.wandTip[0] * 4, AT.wandTip[1] * 4, { vy: -60 }); // a glint as it comes up
+        fx.starPop(this.stage, { x: AT.wandTip[0], y: AT.wandTip[1], sizes: [1, 3, 2, 1] }); // a glint as it comes up
         then?.();
       },
+      12,
     );
   }
 
@@ -497,6 +556,7 @@ class Presence {
         wand.clipBelow = null;
         then?.();
       },
+      12,
     );
   }
 
@@ -524,19 +584,18 @@ class Presence {
   firework() {
     const [x, y] = AT.wandTip;
     const top = y - rand(8, 12);
-    const color = pick([PAL.yellow, PAL.pink, PAL.cyan]);
     const born = performance.now();
     this.stage.addFx({
-      pass: 'glow',
+      pass: 'over',
       draw: (c, now, pixel) => {
-        const t = (now - born) / 320;
+        const t = stepped(now - born) / 330;
         if (t >= 1) {
-          this.stage.burst(x + 1, top, 10);
-          fx.ring(this.stage, { x: x + 1, y: top, r0: 1, r1: 8, ms: 380, color });
+          fx.starPop(this.stage, { x: x + 1, y: top, sizes: [2, 4, 3, 2, 1] });
+          fx.spray(this.stage, { x: x + 1, y: top, count: 10, speed: [15, 35] });
           return false;
         }
-        draw.dot(c, pixel, x + t, y - (y - top) * easeOut(t), 0.6, color);
-        draw.dot(c, pixel, x + t * 0.5, y - (y - top) * easeOut(t) + 2, 0.4, color, 0.5);
+        draw.dot(c, pixel, x + t, y - (y - top) * easeOut(t), 0.5, WAND_STAR[0]);
+        draw.dot(c, pixel, x + t * 0.5, y - (y - top) * easeOut(t) + 2, 0.5, WAND_STAR[3]);
         return true;
       },
     });
@@ -594,10 +653,10 @@ class Presence {
     const fire = () => {
       wand.show(3, 2);
       const [x, y] = AT.castTip;
-      fx.flare(this.stage, { x, y, r: 12 });
-      fx.ring(this.stage, { x, y, r0: 2, r1: 26, ms: 420, color: PAL.yellow, w: 2 });
-      this.stage.burst(x, y, 16);
-      this.stage.shake(2.5, 320);
+      fx.starPop(this.stage, { x, y, sizes: [3, 6, 8, 7, 5, 3, 2, 1] });
+      // the kick: specks thrown back up the wand's line, away from the target
+      fx.spray(this.stage, { x, y, count: 18, speed: [25, 70], dir: -Math.PI / 4, spread: Math.PI * 1.2 });
+      this.stage.shake(2, 250);
       wizard.play(WIZARD.happy, 8);
       onFire(AT.castTip);
       this.later(1500, () => this.wandDown(300));
@@ -607,13 +666,12 @@ class Presence {
       return;
     }
     wizard.play(WIZARD.focus, 10);
-    this.wandUp(300, () => {
-      wand.play(row(1, [0, 1]), 12);
+    this.wandUp(330, () => {
+      wand.play(row(1, [0, 1]), 8); // the sheet's own sparkly wand frames
       const charge = this.own(fx.charge(this.stage, ...AT.wandTip));
-      this.stage.shake(0.8, 750);
       this.later(750, () => {
         charge.stop();
-        wand.play(WAND.cast, 16, { once: true, onDone: fire });
+        wand.play(WAND.cast, 10, { once: true, onDone: fire }); // the sheet's swing, at sprite speed
       });
     });
   }

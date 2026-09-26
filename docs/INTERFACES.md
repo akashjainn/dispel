@@ -106,7 +106,9 @@ Renderer → main (each argument is validated in main):
   checks the point is inside the wizard window, draws the rest in a
   click-through window over the call (`renderer/obliterate.html`, its own
   preload `window.spell`), and quits the call app once the window is covered.
-  If it never arrives, main hangs up after 3 s anyway.
+  If it never arrives, main hangs up after 3 s anyway. The callwatch helper's
+  stdin command is now `end <app>` (the `app` it reported), so an app that
+  let go of the mic for a moment still gets quit.
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of

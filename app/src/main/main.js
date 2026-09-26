@@ -30,7 +30,6 @@ const EDGE = 40; // gap from the screen edge for the default desktop spot
 let tray = null;
 let wizard = null;
 let overlay = null;
-let simWindow = null; // the demo's pretend call window (tray -> "Simulate a call")
 const calls = new CallWatch();
 const obliterator = new Obliterator(); // the hang-up spell's window
 
@@ -312,7 +311,6 @@ function onCallEnded() {
   clearTimeout(s.hangTimer);
   callSession = null;
   overlay.hide();
-  closeSimWindow();
   if (s.ending && obliterator.active) {
     // Let the crystal shatter before the wizard heads back to the desktop.
     obliterator.shatter();
@@ -350,13 +348,6 @@ function endCall() {
   if (!s?.alerted || s.ending || !s.canEnd) return;
   s.ending = true;
   setCallPrompt('ending');
-  // The demo's call window is ours, so the pieces can be made of it.
-  simWindow?.webContents.capturePage().then(
-    (img) => {
-      s.snapshot = img.toDataURL();
-    },
-    () => {},
-  );
   s.fireTimer = setTimeout(() => castSpell(s, null), 3000); // the spell never left the wand: hang up anyway
 }
 
@@ -369,7 +360,7 @@ function castSpell(s, from) {
     hangUp(s);
     return;
   }
-  obliterator.cast({ from, target: s.bounds, style, snapshot: s.snapshot });
+  obliterator.cast({ from, target: s.bounds, style });
   wizard.moveTop(); // the wizard stays in front of its spell
   s.hangTimer = setTimeout(() => hangUp(s), COVERED_MS);
 }
@@ -382,7 +373,7 @@ function hangUp(s) {
     obliterator.shatter();
     setCallPrompt('failed');
   }, 8000);
-  calls.endCall();
+  calls.endCall(s.app);
 }
 
 function onEndResult(ok) {
@@ -402,50 +393,12 @@ function simulateCall() {
   const { workArea } = screen.getPrimaryDisplay();
   const width = Math.round(workArea.width * 0.6);
   const height = Math.round(workArea.height * 0.6);
-  const bounds = {
+  calls.simulate({
     x: workArea.x + Math.round((workArea.width - width) / 2),
     y: workArea.y + Math.round((workArea.height - height) / 2),
     width,
     height,
-  };
-  openSimWindow(bounds);
-  calls.simulate(bounds);
-}
-
-// A pretend call window for the demo, so there's something on screen to
-// watch, flag and hang up. Moving it moves the call; closing it hangs up.
-function openSimWindow(bounds) {
-  closeSimWindow();
-  const win = new BrowserWindow({
-    ...bounds,
-    show: false,
-    frame: false,
-    transparent: true,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    title: 'Demo call',
-    backgroundColor: '#00000000',
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
-  simWindow = win;
-  win.loadFile(path.join(RENDERER, 'call-sim.html'));
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (e) => e.preventDefault());
-  win.once('ready-to-show', () => win.show());
-  win.on('move', () => calls.moveSimulated(win.getBounds()));
-  win.on('closed', () => {
-    if (simWindow !== win) return; // closed by closeSimWindow: the call is already over
-    simWindow = null;
-    if (calls.simulated) calls.endSimulated();
-  });
-}
-
-function closeSimWindow() {
-  const win = simWindow;
-  simWindow = null;
-  if (win && !win.isDestroyed()) win.close();
 }
 
 // ---------- tray ----------

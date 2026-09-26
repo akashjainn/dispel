@@ -51,8 +51,8 @@ class Obliterator {
   }
 
   // from: screen point where the spell left the wand. target: the call
-  // window's screen bounds. snapshot: a data URL of the call window, or null.
-  cast({ from, target, style, snapshot }) {
+  // window's screen bounds.
+  cast({ from, target, style }) {
     const { bounds } = screen.getDisplayMatching(target);
     this.active = true;
     this.win.setBounds(bounds);
@@ -62,7 +62,6 @@ class Obliterator {
       rect: { x: target.x - bounds.x, y: target.y - bounds.y, width: target.width, height: target.height },
       view: { width: bounds.width, height: bounds.height },
       style,
-      snapshot: snapshot || null,
     });
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.finish(), MAX_MS);

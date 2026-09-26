@@ -61,7 +61,6 @@ call, then reports "likely synthetic".
 | `src/renderer/` | wizard page (sprites, speech bubble) and the purple overlay |
 | `src/renderer/magic.js` | effects and idle life: blinks, bubbles, wand tricks, hover/drag reactions, the wand half of the hang-up spell |
 | `src/renderer/obliterate.*`, `src/main/obliterate.js` | the hang-up spell's other half: a click-through window where the bolt hits and the call window shatters |
-| `src/renderer/call-sim.*` | the pretend call window for `--simulate-call` / "Simulate a call" |
 | `Assets/` | sprite sheets (80×128 frames, drawn at 2×) |
 
 `npm start` builds `bin/callwatch` with `swiftc`, which needs the Xcode

@@ -10,7 +10,11 @@
 //          "bounds":{"x":n,"y":n,"width":n,"height":n}|null}
 //
 // Input (one command per line on stdin):
-//   end   politely quits the current call app (like Cmd+Q), which hangs up.
+//   end [name]  politely quits the call app (like Cmd+Q), which hangs up.
+//         name is the "app" this helper reported (e.g. "Discord"); without it,
+//         the app using the mic right now. The name matters: apps like
+//         Discord let go of the mic for moments mid-call, and the app shouldn't
+//         get a pass for that. Only apps in callApps with quitBundles can be quit.
 //         Replies {"event":"end","ok":bool}. Browsers are never quit, since
 //         that would close every tab; for them canEnd is false.
 // Coordinates are global points with the origin at the top-left of the main
@@ -122,9 +126,11 @@ func snapshot() -> [String: Any] {
     return out
 }
 
-/// Politely quits the current call app. Returns false if there's nothing we may quit.
-func endCall() -> Bool {
-    guard let (app, _) = currentCall(), !app.quitBundles.isEmpty else { return false }
+/// Politely quits the named call app (or the one using the mic). Returns false
+/// if there's nothing we may quit.
+func endCall(named name: String?) -> Bool {
+    guard let app = callApps.first(where: { $0.name == name }) ?? currentCall()?.0,
+          !app.quitBundles.isEmpty else { return false }
     var ok = false
     for running in NSWorkspace.shared.runningApplications {
         let id = running.bundleIdentifier ?? ""
@@ -145,8 +151,10 @@ setvbuf(stdout, nil, _IOLBF, 0)
 
 Thread {
     while let line = readLine() {
-        if line.trimmingCharacters(in: .whitespaces) == "end" {
-            _ = emit(["event": "end", "ok": endCall()])
+        let cmd = line.trimmingCharacters(in: .whitespaces)
+        if cmd == "end" || cmd.hasPrefix("end ") {
+            let name = cmd.dropFirst(3).trimmingCharacters(in: .whitespaces)
+            _ = emit(["event": "end", "ok": endCall(named: name.isEmpty ? nil : name)])
         }
     }
     exit(0) // Electron went away
