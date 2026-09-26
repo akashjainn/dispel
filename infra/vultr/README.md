@@ -3,7 +3,20 @@
 Provisions one Vultr instance (firewall, SSH key, Docker, Caddy HTTPS) that runs
 `server/` from this repo. Frontend agents only need the two outputs below.
 
-## Deploy
+## Deploy from GitHub Actions (preferred, shared state)
+State lives in HCP Terraform, so Actions and laptops see the same infra.
+One-time setup (see the PR description): HCP org + workspace `dispel-infra` (CLI-driven,
+**Execution mode: Local**), then repo secrets `VULTR_API_KEY`, `TF_API_TOKEN` and repo
+variable `TF_CLOUD_ORGANIZATION`. Other variables already set: `TF_WORKSPACE`, `SSH_PUBLIC_KEY`,
+`SSH_ALLOWED_CIDRS` (JSON list, your IP as /32), `DEPLOY_GIT_REF`.
+- PRs touching `infra/`: fmt + validate + `plan` (shown in the run summary).
+- Actions -> infra -> Run workflow -> `apply`: creates/changes the real server (costs credit).
+- Changing your IP or teammates' keys = edit the repo variables, then re-run apply.
+
+## Deploy from a laptop
+Needs the same env: `TF_CLOUD_ORGANIZATION`, `TF_WORKSPACE=dispel-infra`, `TF_TOKEN_app_terraform_io` (or `terraform login`).
+Prefer Actions so there is one place that applies.
+
 ```sh
 export VULTR_API_KEY=...            # Vultr console -> Account -> API (allow your IP)
 cd infra/vultr
@@ -27,5 +40,5 @@ ssh root@<ip> 'cd /opt/dispel && docker compose -f compose.prod.yml restart serv
 
 ## Notes
 - Plan id `vc2-4c-8gb` (atl, ~$0.06/hr) and os_id `2284` were verified with `vultr-cli` on 2026-09-26.
-- `terraform.tfstate` contains the API key; it is git-ignored. Don't share it.
+- State (in HCP Terraform) contains the server API key; only people in the HCP org can read it.
 - Without `domain`, TLS uses `<ip-with-dashes>.sslip.io` (Let's Encrypt via Caddy).
