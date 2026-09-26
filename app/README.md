@@ -8,8 +8,8 @@ npm start                      # wizard appears; click the menu-bar icon to hide
 npm start -- --simulate-call   # also runs the call flow with a fake call window
 ```
 
-- **Check a file:** drop an audio file on the wizard or the cauldron, or click
-  either one to pick a file. The wizard answers with a verdict and a score.
+- **Check a file:** drop an audio file on the wizard or on the menu-bar icon,
+  or click the wizard to pick a file. The wizard answers with a verdict and a score.
 - **Calls (macOS 14.2+):** when Zoom, FaceTime, Teams, Discord, Slack or a
   browser is using the mic, the wizard sits grayed out in the call window's
   bottom-right corner. If the call is flagged, it comes out in full color, the

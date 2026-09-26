@@ -60,7 +60,7 @@ function createWizard() {
       nodeIntegration: false,
     },
   });
-  wizard.setAlwaysOnTop(true, 'screen-saver');
+  setWizardLevel('floating');
   wizard.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   wizard.loadFile(path.join(RENDERER, 'wizard.html'));
   wizard.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -112,6 +112,16 @@ function placeWizard() {
   });
 }
 
+// On the desktop the wizard floats above normal windows, like a tool palette,
+// so files dragged from Finder can land on it. During a call it goes to the
+// top level so it shows over a full-screen call and above the purple ring.
+let wizardLevel = null;
+function setWizardLevel(level) {
+  if (level === wizardLevel) return;
+  wizardLevel = level;
+  wizard.setAlwaysOnTop(true, level);
+}
+
 function setMode(next, payload = {}) {
   mode = next;
   bubble = ['analyzing', 'result', 'call-alert'].includes(next);
@@ -119,6 +129,7 @@ function setMode(next, payload = {}) {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
   }
+  setWizardLevel(callSession ? 'screen-saver' : 'floating');
   placeWizard();
   wizard.webContents.send('wizard:state', { mode: next, ...payload });
   if (!wizard.isVisible()) wizard.showInactive();
@@ -237,8 +248,10 @@ async function onCallStarted({ app: callApp, bounds, canEnd }) {
   callSession = session;
   console.log('[call] started:', callApp, bounds);
   const fileBubbleUp = mode === 'analyzing' || mode === 'result';
-  if (fileBubbleUp) placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
-  else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
+  if (fileBubbleUp) {
+    setWizardLevel('screen-saver');
+    placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
+  } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
 
   // MOCK: no audio is captured yet. We wait out the mock latency and use the
   // mock score, which always lands above the alert threshold.
@@ -267,6 +280,7 @@ function onCallEnded() {
   clearTimeout(s.endTimer);
   callSession = null;
   overlay.hide();
+  setWizardLevel('floating');
   if (s.ending) {
     wizardVisible = true;
     setMode('result', { message: 'I hung up the call.' });
@@ -356,6 +370,12 @@ function createTray() {
   tray = new Tray(trayIcon());
   tray.setToolTip('Dispel wizard');
   tray.on('click', toggleWizard);
+  // Audio files can also be dropped on the menu-bar icon (macOS).
+  tray.on('drop-files', (_e, files) => {
+    const file = files.find(validAudioPath);
+    if (file) analyzeFile(file);
+    else setMode('result', { error: 'That doesn’t look like an audio file I can read.' });
+  });
   tray.on('right-click', () => tray.popUpContextMenu(trayMenu()));
 }
 
