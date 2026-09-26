@@ -265,8 +265,8 @@ async function onCallStarted({ app: callApp, bounds, canEnd }) {
     placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
   } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
 
-  // MOCK: no audio is captured yet. We wait out the mock latency and use the
-  // mock score, which always lands above the alert threshold.
+  // MOCK: no audio is captured yet. The server (or the local mock) answers with
+  // demo data: about 70% of calls land above the alert threshold.
   const result = await analyzer.analyze('call');
   if (callSession !== session) return; // call ended or restarted meanwhile
   logResult({ source: 'call', name: callApp, result });
