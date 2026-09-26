@@ -53,8 +53,11 @@ makes every decision; the renderer only draws the state it's sent.
 
 Renderer → main (each argument is validated in main):
 - `wizard.pickFile()` opens a file dialog, then analyzes the chosen file.
-- `wizard.analyzeFile(file: File)` analyzes a dropped file. The preload turns
-  it into a path; main checks the extension, that it's a file, and its size.
+- `wizard.endCall()` answers "Yes, hang up" on a flagged call. Main quits the
+  call app politely (like Cmd+Q) through the callwatch helper. Browsers are never
+  quit; for them the wizard asks the user to close the call tab.
+- Dropped files never cross the bridge: the preload catches the drop and sends
+  the file's path to main, which checks the extension, that it's a file, and its size.
 - `wizard.dismissBubble()`, `wizard.vanished()`, `wizard.drag(phase, x, y)` are UI only.
 
 Main → renderer:

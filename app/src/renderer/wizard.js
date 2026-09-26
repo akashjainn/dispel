@@ -45,7 +45,8 @@ function renderDigits(percent, verdict) {
   }
 }
 
-function showBubble({ title, result, note = '', alert = false }) {
+// ask: { text, yes: bool, noLabel } shows a question with buttons, or null.
+function showBubble({ title, result, note = '', alert = false, ask = null }) {
   const b = $('bubble');
   b.className = `bubble${alert ? ' alert' : ''}${result ? ' ' + result.overall.verdict : ''}`;
   $('bubble-title').textContent = title;
@@ -57,7 +58,26 @@ function showBubble({ title, result, note = '', alert = false }) {
   }
   const notes = [note, ...(result?.mock ? ['Mock result: no detection model is connected yet.'] : [])];
   $('bubble-note').textContent = notes.filter(Boolean).join(' ');
+  $('bubble-ask').hidden = !ask;
+  if (ask) {
+    $('ask-text').textContent = ask.text;
+    $('ask-yes').hidden = !ask.yes;
+    $('ask-no').hidden = !ask.noLabel;
+    $('ask-no').textContent = ask.noLabel || '';
+  }
   b.hidden = false;
+  placeBubble();
+}
+
+// Keep the tail pointing at the wizard's face: sit the bubble's bottom at
+// face height, unless it's too tall for that, then pin it to the top.
+const FACE_FROM_BOTTOM = 120; // px from the window bottom to just below the wizard's face
+function placeBubble() {
+  const b = $('bubble');
+  b.style.top = '';
+  const h = b.offsetHeight;
+  const top = Math.max(6, window.innerHeight - FACE_FROM_BOTTOM - h);
+  b.style.top = `${top}px`;
 }
 
 function hideBubble() {
@@ -100,10 +120,16 @@ const states = {
     showBubble({ title: `Hmm… let me listen to “${name}”.`, note: 'Consulting the cauldron…' });
   },
 
-  result({ result, error }) {
+  result({ result, error, message }) {
     setBody();
     wand(false);
     potLayer.play(POT.bubble, 6);
+    if (message) {
+      wizardLayer.play(WIZARD.happy, 6);
+      poof();
+      showBubble({ title: message });
+      return;
+    }
     if (error || !result) {
       wizardLayer.play(WIZARD.idle, 6);
       showBubble({ title: error || 'Something went wrong.' });
@@ -123,22 +149,31 @@ const states = {
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
-  'call-alert'({ app, result, bubble = true }) {
+  'call-alert'({ app, result, bubble = true, prompt = 'ask' }) {
     setBody('call');
     if (!bubble) {
       hideBubble();
       wand(false);
       return;
     }
-    poof();
-    wand(true);
-    setTimeout(() => mode === 'call-alert' && wand(false), 2500);
+    const ASK = {
+      ask: { text: 'Do you want me to end the call?', yes: true, noLabel: 'No' },
+      ending: { text: `Hanging up ${app}…`, yes: false, noLabel: null },
+      failed: { text: `I couldn’t hang up. End the call in ${app}.`, yes: false, noLabel: 'OK' },
+      manual: { text: `To end it, close the call in ${app}.`, yes: false, noLabel: 'OK' },
+    };
+    if (prompt === 'ask') {
+      poof();
+      wand(true);
+      setTimeout(() => mode === 'call-alert' && wand(false), 2500);
+    }
     wizardLayer.play(WIZARD.idle, 8);
     showBubble({
       title: 'This is likely not a real person speaking.',
       result,
-      note: `Heard on ${app}. Call audio is compressed, which makes this less reliable.`,
+      note: `Heard on ${app}. Call audio is compressed, so this is less reliable.`,
       alert: true,
+      ask: ASK[prompt] ?? ASK.ask,
     });
   },
 };
@@ -151,6 +186,8 @@ window.wizard.onState((state) => {
 // ---------- input: click to choose a file, drag to move, drop to analyze ----------
 
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
+$('ask-yes').addEventListener('click', () => window.wizard.endCall());
+$('ask-no').addEventListener('click', () => window.wizard.dismissBubble());
 
 const wiz = $('stage');
 let press = null;

@@ -20,7 +20,7 @@ const MAX_FILE_BYTES = 500 * 1024 * 1024;
 // the speech bubble sits to its left.
 const SIZE = {
   plain: { width: 160, height: 240 },
-  bubble: { width: 400, height: 240 },
+  bubble: { width: 400, height: 290 }, // taller: the call alert has yes/no buttons
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
@@ -36,7 +36,7 @@ let wizardVisible = false; // desktop visibility, independent of call mode
 let mode = 'hidden'; // hidden | idle | analyzing | result | call-watch | call-alert
 let bubble = false;
 let busy = false; // a file analysis is running
-let callSession = null; // { id, app, bounds, alerted, wasVisible }
+let callSession = null; // { id, app, bounds, canEnd, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
 
 // ---------- windows ----------
@@ -163,7 +163,7 @@ function toggleWizard() {
 }
 
 async function analyzeFile(filePath) {
-  if (busy || callSession) return;
+  if (busy) return;
   busy = true;
   const name = path.basename(filePath);
   wizardVisible = true;
@@ -171,11 +171,11 @@ async function analyzeFile(filePath) {
   try {
     const result = await analyzer.analyze('file');
     logResult({ source: 'file', name, result });
-    if (callSession) return; // a call took over the wizard meanwhile
+    if (callAlertShowing()) return; // don't cover a deepfake warning; it's in the log
     setMode('result', { name, result });
   } catch (err) {
     console.error('[analyze]', err);
-    if (!callSession) setMode('result', { name, error: 'I couldn’t read that file.' });
+    if (!callAlertShowing()) setMode('result', { name, error: 'I couldn’t read that file.' });
   } finally {
     busy = false;
   }
@@ -203,12 +203,42 @@ function validAudioPath(p) {
 
 // ---------- call mode ----------
 
-async function onCallStarted({ app: callApp, bounds }) {
+function callAlertShowing() {
+  return Boolean(callSession?.alerted) && mode === 'call-alert' && bubble;
+}
+
+// Put the wizard back in the call's state (after a file check or a message).
+function showCallMode() {
+  const s = callSession;
+  if (s.alerted) setMode('call-alert', { app: s.app, result: s.result, prompt: s.prompt });
+  else setMode('call-watch', { app: s.app });
+}
+
+// prompt: ask | ending | failed | manual (see the call-alert state in wizard.js)
+function setCallPrompt(prompt) {
+  const s = callSession;
+  s.prompt = prompt;
+  setMode('call-alert', { app: s.app, result: s.result, prompt });
+}
+
+async function onCallStarted({ app: callApp, bounds, canEnd }) {
   if (!guardEnabled) return;
-  const session = { id: Date.now(), app: callApp, bounds, alerted: false, wasVisible: wizardVisible };
+  const session = {
+    id: Date.now(),
+    app: callApp,
+    bounds,
+    canEnd,
+    alerted: false,
+    result: null,
+    prompt: null,
+    ending: false,
+    wasVisible: wizardVisible,
+  };
   callSession = session;
   console.log('[call] started:', callApp, bounds);
-  setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
+  const fileBubbleUp = mode === 'analyzing' || mode === 'result';
+  if (fileBubbleUp) placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
+  else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
 
   // MOCK: no audio is captured yet. We wait out the mock latency and use the
   // mock score, which always lands above the alert threshold.
@@ -217,8 +247,9 @@ async function onCallStarted({ app: callApp, bounds }) {
   logResult({ source: 'call', name: callApp, result });
   if (result.overall.probability >= analyzer.SYNTHETIC_AT) {
     session.alerted = true;
+    session.result = result;
     showOverlay(session.bounds);
-    setMode('call-alert', { app: callApp, result });
+    setCallPrompt(session.canEnd ? 'ask' : 'manual'); // takes over any file bubble: it's urgent
   }
 }
 
@@ -231,15 +262,45 @@ function onCallMoved({ bounds }) {
 
 function onCallEnded() {
   if (!callSession) return;
-  console.log('[call] ended:', callSession.app);
-  const { wasVisible } = callSession;
+  const s = callSession;
+  console.log('[call] ended:', s.app);
+  clearTimeout(s.endTimer);
   callSession = null;
   overlay.hide();
-  if (wasVisible || wizardVisible) setMode('idle');
+  if (s.ending) {
+    wizardVisible = true;
+    setMode('result', { message: 'I hung up the call.' });
+  } else if (mode === 'analyzing' || mode === 'result') {
+    wizardVisible = true;
+    placeWizard(); // keep the file bubble, back at the desktop spot
+  } else if (s.wasVisible || wizardVisible) setMode('idle');
   else {
     wizard.hide();
     mode = 'hidden';
   }
+}
+
+// "Yes, hang up": quit the call app. If the call is still going after a few
+// seconds (the app asked to confirm, or refused), say so.
+function endCall() {
+  const s = callSession;
+  if (!s?.alerted || s.ending || !s.canEnd) return;
+  s.ending = true;
+  setCallPrompt('ending');
+  calls.endCall();
+  s.endTimer = setTimeout(() => {
+    if (callSession !== s) return;
+    s.ending = false;
+    setCallPrompt('failed');
+  }, 8000);
+}
+
+function onEndResult(ok) {
+  const s = callSession;
+  if (!s?.ending || ok) return;
+  clearTimeout(s.endTimer);
+  s.ending = false;
+  setCallPrompt('failed');
 }
 
 function simulateCall() {
@@ -273,7 +334,7 @@ function trayIcon() {
 function trayMenu() {
   return Menu.buildFromTemplate([
     { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
-    { label: 'Check an audio file…', click: pickFile, enabled: !busy && !callSession },
+    { label: 'Check an audio file…', click: pickFile, enabled: !busy },
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -306,14 +367,17 @@ function registerIpc() {
   ipcMain.on('wizard:pick-file', () => pickFile());
 
   ipcMain.on('wizard:analyze-path', (_e, p) => {
-    if (callSession) return; // the wizard is busy watching a call
     if (validAudioPath(p)) analyzeFile(p);
     else setMode('result', { error: 'That doesn’t look like an audio file I can read.' });
   });
 
+  ipcMain.on('wizard:end-call', () => endCall());
+
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result') setMode('idle');
-    else if (mode === 'call-alert') {
+    if (mode === 'result') {
+      if (callSession) showCallMode();
+      else setMode('idle');
+    } else if (mode === 'call-alert') {
       // Keep the purple highlight; just fold the speech bubble away.
       bubble = false;
       placeWizard();
@@ -354,6 +418,7 @@ app.whenReady().then(() => {
   calls.on('call', onCallStarted);
   calls.on('move', onCallMoved);
   calls.on('ended', onCallEnded);
+  calls.on('end-result', onEndResult);
   calls.start();
 
   // Start with the wizard out so people see it on first launch.

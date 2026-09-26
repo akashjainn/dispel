@@ -175,3 +175,39 @@ body.call .stage {
 .bubble-note:empty {
   display: none;
 }
+
+.bubble-ask {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 2px dashed rgba(42, 23, 64, 0.2);
+}
+.ask-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ask-buttons {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 rgba(42, 23, 64, 0.35);
+  cursor: pointer;
+}
+.btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(42, 23, 64, 0.35);
+}
+.btn-yes {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}

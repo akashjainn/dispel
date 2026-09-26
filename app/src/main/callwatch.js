@@ -2,6 +2,7 @@
 //   'call'   ({ app, bounds })  a call app started using the mic
 //   'move'   ({ app, bounds })  the call window moved or resized
 //   'ended'  ()                 no call app is using the mic any more
+//   'end-result' (ok)           reply to endCall(): whether the app was asked to quit
 // On other platforms, or if the helper isn't built, nothing is emitted and
 // only the tray's "Simulate call" drives call mode.
 
@@ -17,7 +18,7 @@ class CallWatch extends EventEmitter {
   constructor() {
     super();
     this.proc = null;
-    this.state = { active: false, app: null, bounds: null };
+    this.state = { active: false, app: null, bounds: null, canEnd: false };
     this.simulated = false;
   }
 
@@ -26,7 +27,7 @@ class CallWatch extends EventEmitter {
       console.warn('[callwatch] helper unavailable; call detection is off');
       return false;
     }
-    this.proc = spawn(HELPER, [], { stdio: ['ignore', 'pipe', 'inherit'] });
+    this.proc = spawn(HELPER, [], { stdio: ['pipe', 'pipe', 'inherit'] });
     readline.createInterface({ input: this.proc.stdout }).on('line', (line) => {
       let msg;
       try {
@@ -34,7 +35,8 @@ class CallWatch extends EventEmitter {
       } catch {
         return;
       }
-      if (!this.simulated) this.apply(msg);
+      if (msg.event === 'end') this.emit('end-result', Boolean(msg.ok));
+      else if (!this.simulated) this.apply(msg);
     });
     this.proc.on('exit', (code) => {
       console.warn('[callwatch] helper exited', code);
@@ -48,9 +50,9 @@ class CallWatch extends EventEmitter {
     this.proc = null;
   }
 
-  apply({ active, app, bounds }) {
+  apply({ active, app, bounds, canEnd }) {
     const prev = this.state;
-    this.state = { active: Boolean(active), app: app || null, bounds: bounds || null };
+    this.state = { active: Boolean(active), app: app || null, bounds: bounds || null, canEnd: Boolean(canEnd) };
     if (this.state.active && !prev.active) this.emit('call', this.state);
     else if (!this.state.active && prev.active) this.emit('ended');
     else if (this.state.active && JSON.stringify(bounds) !== JSON.stringify(prev.bounds)) {
@@ -58,10 +60,23 @@ class CallWatch extends EventEmitter {
     }
   }
 
+  // Hang up by politely quitting the call app. The answer arrives as
+  // 'end-result'; the call itself ends when the app lets go of the mic.
+  endCall() {
+    if (this.simulated) {
+      this.endSimulated();
+      this.emit('end-result', true);
+    } else if (this.proc) {
+      this.proc.stdin.write('end\n');
+    } else {
+      this.emit('end-result', false);
+    }
+  }
+
   // Demo helper: pretend a call is running in `bounds` until endSimulated().
   simulate(bounds) {
     this.simulated = true;
-    this.apply({ active: true, app: 'Simulated call', bounds });
+    this.apply({ active: true, app: 'Simulated call', bounds, canEnd: true });
   }
 
   endSimulated() {

@@ -13,8 +13,10 @@ npm start -- --simulate-call   # also runs the call flow with a fake call window
 - **Calls (macOS 14.2+):** when Zoom, FaceTime, Teams, Discord, Slack or a
   browser is using the mic, the wizard sits grayed out in the call window's
   bottom-right corner. If the call is flagged, it comes out in full color, the
-  call window gets a purple outline, and a speech bubble appears. Turn this off
-  with "Watch calls" in the tray menu (right-click the icon).
+  call window gets a purple outline, and a speech bubble asks whether to end the
+  call. "Yes, hang up" quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
+  for a browser call it asks you to close the tab instead. Turn call watching
+  off with "Watch calls" in the tray menu (right-click the icon).
 - **Log:** every result is appended to
   `~/Library/Application Support/dispel-wizard/results.jsonl` (score, verdict,
   file name or call app; never audio). Tray menu → "Open results log".
