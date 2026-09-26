@@ -46,7 +46,7 @@ function renderDigits(percent, verdict) {
 }
 
 // ask: { text, yes: bool, noLabel } shows a question with buttons, or null.
-function showBubble({ title, result, note = '', alert = false, ask = null }) {
+function showBubble({ title, result, note = '', alert = false, ask = null, learnMore = false }) {
   const b = $('bubble');
   b.className = `bubble${alert ? ' alert' : ''}${result ? ' ' + result.overall.verdict : ''}`;
   $('bubble-title').textContent = title;
@@ -59,6 +59,8 @@ function showBubble({ title, result, note = '', alert = false, ask = null }) {
   const notes = [note, ...(result?.mock ? ['Mock result: no detection model is connected yet.'] : [])];
   $('bubble-note').textContent = notes.filter(Boolean).join(' ');
   $('bubble-ask').hidden = !ask;
+  $('lesson').hidden = true;
+  $('learn-more').hidden = !learnMore;
   if (ask) {
     $('ask-text').textContent = ask.text;
     $('ask-yes').hidden = !ask.yes;
@@ -138,7 +140,23 @@ const states = {
     const { verdict } = result.overall;
     wizardLayer.play(verdict === 'likely_real' ? WIZARD.happy : WIZARD.idle, 6);
     poof();
-    showBubble({ title: COPY[verdict].title, result, note: 'One clip isn’t proof. Check the source too.' });
+    showBubble({
+      title: COPY[verdict].title,
+      result,
+      note: 'One clip isn’t proof. Check the source too.',
+      learnMore: true,
+    });
+  },
+
+  // Learn mode: the wizard teaches, one short page at a time. Paging happens
+  // here; main only knows the bubble is open.
+  learn({ topic }) {
+    setBody(...(document.body.classList.contains('call') ? ['call'] : [])); // full color while teaching
+    wand(false);
+    wizardLayer.play(WIZARD.happy, 6);
+    lesson = { topic: LESSONS[topic] ? topic : null, page: 0 };
+    showBubble({ title: '' });
+    renderLesson();
   },
 
   'call-watch'({ appear }) {
@@ -188,6 +206,67 @@ window.wizard.onState((state) => {
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
 $('ask-yes').addEventListener('click', () => window.wizard.endCall());
 $('ask-no').addEventListener('click', () => window.wizard.dismissBubble());
+$('learn-more').addEventListener('click', () => window.wizard.learn('scams'));
+$('lesson-back').addEventListener('click', () => {
+  if (lesson.page > 0) lesson.page -= 1;
+  else lesson.topic = null; // back to the topic list
+  renderLesson();
+});
+$('lesson-next').addEventListener('click', () => {
+  const pages = LESSONS[lesson.topic].pages;
+  if (lesson.page < pages.length - 1) {
+    lesson.page += 1;
+  } else {
+    // Last page: offer the next topic, or return to the list after the last one.
+    const next = LESSON_TOPICS[LESSON_TOPICS.indexOf(lesson.topic) + 1];
+    lesson = { topic: next ?? null, page: 0 };
+  }
+  renderLesson();
+});
+$('stage').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  window.wizard.contextMenu();
+});
+
+// ---------- learn mode ----------
+
+let lesson = { topic: null, page: 0 };
+
+function renderLesson() {
+  $('bubble-score').hidden = true;
+  $('bubble-note').textContent = '';
+  $('bubble-ask').hidden = true;
+  $('learn-more').hidden = true;
+  $('lesson').hidden = false;
+
+  const topics = $('lesson-topics');
+  topics.replaceChildren();
+  if (!lesson.topic) {
+    $('bubble-title').textContent = 'What would you like to learn?';
+    $('lesson-text').textContent = 'Voice cloning scams are rising. A few minutes here can protect you and the people you love.';
+    for (const key of LESSON_TOPICS) {
+      const b = document.createElement('button');
+      b.className = 'btn topic-btn';
+      b.textContent = LESSONS[key].title;
+      b.addEventListener('click', () => {
+        lesson = { topic: key, page: 0 };
+        renderLesson();
+      });
+      topics.append(b);
+    }
+    $('lesson-nav').hidden = true;
+  } else {
+    const { title, pages } = LESSONS[lesson.topic];
+    const last = lesson.page === pages.length - 1;
+    const nextTopic = LESSON_TOPICS[LESSON_TOPICS.indexOf(lesson.topic) + 1];
+    $('bubble-title').textContent = title;
+    $('lesson-text').textContent = pages[lesson.page];
+    $('lesson-page').textContent = `${lesson.page + 1} / ${pages.length}`;
+    $('lesson-next').textContent = !last ? 'Next' : nextTopic ? 'Next topic' : 'All topics';
+    $('lesson-nav').hidden = false;
+  }
+  placeBubble();
+}
 
 const wiz = $('stage');
 let press = null;

@@ -124,7 +124,7 @@ function setWizardLevel(level) {
 
 function setMode(next, payload = {}) {
   mode = next;
-  bubble = ['analyzing', 'result', 'call-alert'].includes(next);
+  bubble = ['analyzing', 'result', 'call-alert', 'learn'].includes(next);
   if (next === 'hidden') {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
@@ -210,6 +210,18 @@ function validAudioPath(p) {
   } catch {
     return false;
   }
+}
+
+// ---------- learn mode ----------
+
+const LESSON_TOPICS = new Set(['deepfake', 'scams', 'protect']); // keys of LESSONS in lessons.js
+
+// The wizard explains deepfakes, scams and how to stay safe (renderer pages
+// through the lesson). Doesn't interrupt a file check or a call warning.
+function learn(topic) {
+  if (mode === 'analyzing' || callAlertShowing()) return;
+  wizardVisible = true;
+  setMode('learn', { topic: LESSON_TOPICS.has(topic) ? topic : null });
 }
 
 // ---------- call mode ----------
@@ -349,6 +361,7 @@ function trayMenu() {
   return Menu.buildFromTemplate([
     { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
+    { label: 'Learn about deepfakes', click: () => learn() },
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -393,8 +406,20 @@ function registerIpc() {
 
   ipcMain.on('wizard:end-call', () => endCall());
 
+  ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
+
+  // Right-click on the wizard.
+  ipcMain.on('wizard:context-menu', () => {
+    Menu.buildFromTemplate([
+      { label: 'Check an audio file…', click: pickFile, enabled: !busy },
+      { label: 'Learn about deepfakes', click: () => learn() },
+      { type: 'separator' },
+      { label: 'Send wizard away', click: dismiss, enabled: !callSession },
+    ]).popup({ window: wizard });
+  });
+
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result') {
+    if (mode === 'result' || mode === 'learn') {
       if (callSession) showCallMode();
       else setMode('idle');
     } else if (mode === 'call-alert') {

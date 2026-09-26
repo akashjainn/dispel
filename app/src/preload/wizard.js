@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('wizard', {
   pickFile: () => ipcRenderer.send('wizard:pick-file'),
   dismissBubble: () => ipcRenderer.send('wizard:dismiss-bubble'),
   endCall: () => ipcRenderer.send('wizard:end-call'),
+  learn: (topic) => ipcRenderer.send('wizard:learn', topic),
+  contextMenu: () => ipcRenderer.send('wizard:context-menu'),
   vanished: () => ipcRenderer.send('wizard:vanished'),
   drag: (phase, x, y) => ipcRenderer.send('wizard:drag', phase, x, y),
 });

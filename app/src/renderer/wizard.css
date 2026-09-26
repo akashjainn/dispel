@@ -176,6 +176,48 @@ body.call .stage {
   display: none;
 }
 
+.link-btn {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lesson-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.lesson-topics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lesson-topics:empty {
+  display: none;
+}
+.topic-btn {
+  text-align: left;
+}
+.lesson-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lesson-page {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
 .bubble-ask {
   margin-top: 8px;
   padding-top: 8px;
