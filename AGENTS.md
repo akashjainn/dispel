@@ -174,7 +174,7 @@ Other rules:
 ## Commands
 
 Fill these in when each part is scaffolded. Don't guess them.
-- App dev: `TBD`
+- App dev (David): `cd app && npm install && npm start` (`npm start -- --simulate-call` runs the call flow without a real call)
 - Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
 - Server tests: `cd server && python -m pytest -q`
 - Server in Docker: `docker compose -f docker/compose.yml up --build`
