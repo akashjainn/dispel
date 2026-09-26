@@ -31,3 +31,10 @@
   The server, the NSA TSV (`python -m hearsay predict`) and the Docker image all use the same `hearsay/` code.
 - **Sat 02:50. Verdict band:** placeholder 0.25 / 0.75 on the posterior stays until calibration on
   new voices is fixed (teammate check: 18 of 20 consented ElevenLabs clones scored "likely real", although the ranking was right, AUC 0.98).
+- **Sat 04:10. Release v3p6 (supersedes v3p):** six analyzers fused additively: v3, LFCC-LCNN, prosody, spectral,
+  voice (formant movement + pitch-loudness coupling), rhythm. Out-of-fold minDCF on DiffSSD val: clean 0.000,
+  ffmpeg stretch 0.008, librosa stretch 0.085 (v3 alone 0.010 / 0.032 / 0.392). Spectral flatness and formant
+  bandwidth B2 are excluded because they differ between NSA's ffmpeg-resampled real clips and ours. All 242 NSA
+  LJRealResampled clips score like our validation reals (none near the threshold).
+- **Sat 04:10. Two fusion profiles:** `nsa` (all six) for the TSV; `app` (v3 + prosody) for the server, because on
+  the teammate check the six-way fusion ranked worse (AUC 0.935 vs 0.992). Details in ml/README.md.

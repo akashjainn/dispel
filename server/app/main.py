@@ -40,7 +40,8 @@ def _load_pipeline():
         return
     try:
         from hearsay.orchestrator import Pipeline  # heavy imports (torch) only when weights exist
-        _PIPE = Pipeline(d, device=None if os.getenv("DEVICE", "cpu") == "cuda" else "cpu")
+        _PIPE = Pipeline(d, device=None if os.getenv("DEVICE", "cpu") == "cuda" else "cpu",
+                         profile=os.getenv("FUSION_PROFILE", "app"))
         log.info("hearsay pipeline loaded from %s", d)
     except Exception as e:  # keep serving the mock rather than crash-looping
         _PIPE_ERR = f"{type(e).__name__}: {e}"
