@@ -19,3 +19,7 @@
   Audio is uploaded to it only on a user action. The server keeps no audio.
   Deployed access is HTTPS (Caddy) plus a bearer API key. `main` stays free of
   keys; weights are rsynced to the instance, never committed. (israel/backend-infra-setup)
+- **Sat. Deploys:** merges to `main` that touch `server/` or `docker/` deploy over SSH from GitHub
+  Actions. The runner opens a temporary firewall rule for its own IP, logs in as `deploy` (its key
+  can only run `/opt/dispel/deploy.sh`), then closes the rule. Adding this replaced the server once
+  (new IP, so a new sslip.io URL). `/` serves a "Team Gemini" landing page.

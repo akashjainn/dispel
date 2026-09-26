@@ -13,6 +13,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 
 ## Current state
 - Model: v2e frozen before the event (see DECISIONS.md).
+- Live server: see the latest `infra` run summary or `terraform output base_url` (the URL changes when the server is replaced). Deploys to it are automatic on merge to `main`.
 - Server: scaffolded on `israel/backend-infra-setup`. `/health` and `/analyze` exist and return the mock example (`mock: true`) until hearsay/ is wired in. Vultr Terraform written and validated, **not yet applied**.
 - App: not started.
 - NSA submission: not started. The scoring metric is unknown (see CHALLENGE.md).
@@ -23,4 +24,5 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
 - Sat · Israel · server/ API scaffold (mock), Vultr Terraform, INTERFACES 0.2, AGENTS/DECISIONS updated for Vultr hosting · israel/backend-infra-setup
+- Sat · Israel · landing page at /, deploy-on-merge workflow (SSH via temporary firewall rule), `deploy` user on the server · israel/deploy-workflow
 - Fri 20:00 · Akash · repo initialized with docs only ·

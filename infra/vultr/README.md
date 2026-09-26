@@ -27,6 +27,13 @@ terraform output -raw api_key        # -> bearer token (keep in the Electron mai
 ```
 Cloud-init takes a few minutes; then `curl $(terraform output -raw base_url)/health`.
 
+## Deploying code (automatic)
+`.github/workflows/deploy.yml` runs on merges to `main` that touch `server/`, `docker/` or `docs/examples/`
+(and on demand from the Actions tab). It finds the server by its label (`dispel-api`), opens port 22 for the
+runner's IP through the Vultr API, SSHes in as `deploy`, and closes the rule. The `deploy` key (repo secret
+`DEPLOY_SSH_KEY`, public half in repo variable `DEPLOY_PUBLIC_KEY`) can only run `/opt/dispel/deploy.sh`.
+If a run is killed mid-way, a stale rule named `gha-<run id>` may stay in the firewall group; delete it in the console.
+
 ## Weights (not in git)
 ```sh
 $(terraform output -raw upload_weights)   # rsync your MODEL_DIR to the instance
