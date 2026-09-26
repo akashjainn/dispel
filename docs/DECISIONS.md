@@ -42,5 +42,4 @@
 - **Sat. Repo-driven server:** the Vultr server's first-boot script is a fixed bootstrap; deploy logic and the container stack
   live in the repo (`docker/remote-deploy.sh`, `docker/compose.prod.yml`) and ship on merge. Model weights sit on a separate
   NVMe block-storage volume (`/opt/dispel/models`, 10 GB) that survives server replacement. `ignore_changes = [user_data]`, a
-  `replace_server` gate in the infra workflow and `prevent_destroy` on the volume stop accidental wipes. CI pushes an allowlist
-  of settings (`GEMINI_API_KEY`, `GEMINI_MODEL`) to the server over the restricted deploy SSH login. (israel/repo-driven-server)
+  `replace_server` gate in the infra workflow and `prevent_destroy` on the volume stop accidental wipes. (israel/repo-driven-server)

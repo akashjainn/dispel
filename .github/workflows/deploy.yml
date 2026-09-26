@@ -45,8 +45,6 @@ jobs:
       - name: Deploy
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
         run: |
           ip=${{ steps.srv.outputs.ip }}
           umask 077
@@ -58,11 +56,7 @@ jobs:
           done
           [ -s known_hosts ] || { echo "cannot reach $ip:22"; exit 1; }
           # The server forces this login to run /opt/dispel/deploy.sh, which runs docker/remote-deploy.sh from the repo.
-          # Settings (only the keys that are set) go over stdin; the server accepts an allowlist of names.
-          {
-            [ -z "$GEMINI_API_KEY" ] || printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY"
-            [ -z "$GEMINI_MODEL" ] || printf 'GEMINI_MODEL=%s\n' "$GEMINI_MODEL"
-          } | ssh -i key -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes deploy@"$ip"
+          ssh -i key -o UserKnownHostsFile=known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes deploy@"$ip" < /dev/null
 
       - name: Health check
         run: |

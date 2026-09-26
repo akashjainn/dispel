@@ -15,7 +15,7 @@ write_files:
     permissions: "0755"
     content: |
       #!/bin/sh
-      # Fixed wrapper: update the repo, then hand over to the repo's own deploy script (stdin passes through).
+      # Fixed wrapper: update the repo, then hand over to the repo's own deploy script.
       set -e
       cd /opt/dispel
       [ -d repo ] || git clone ${repo_url} repo

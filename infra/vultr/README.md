@@ -41,9 +41,7 @@ Keep a copy of the weights off the server anyway (Akash has the source of truth)
 ## How the server is driven from the repo
 The startup script (cloud-init) writes a tiny fixed bootstrap: `/opt/dispel/deploy.sh` updates the git checkout and runs
 `docker/remote-deploy.sh` from the repo. That script and `docker/compose.prod.yml` hold everything else (Caddy config, the
-container stack, settings), so changing them is an ordinary PR that deploys on merge, with no server replacement.
-- **Settings/secrets** (`GEMINI_API_KEY`, `GEMINI_MODEL`): set the repo secret/variable, then the deploy workflow pushes them
-  over SSH into `/opt/dispel/settings.env` (allowlist in `docker/remote-deploy.sh`; add a name there to allow a new one).
+container stack), so changing them is an ordinary PR that deploys on merge, with no server replacement.
 - To roll the server back to the bootstrap state deliberately: Actions -> infra -> apply with `replace_server`.
 
 ## Deploying code (automatic)
