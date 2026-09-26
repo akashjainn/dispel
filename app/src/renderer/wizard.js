@@ -46,7 +46,8 @@ function renderDigits(percent, verdict) {
 }
 
 // ask: { text, yes: bool, noLabel } shows a question with buttons, or null.
-function showBubble({ title, result, note = '', alert = false, ask = null, learnMore = false }) {
+// notify: { label, configured, status } shows the "text my contact" button.
+function showBubble({ title, result, note = '', alert = false, ask = null, learnMore = false, notify = null }) {
   const b = $('bubble');
   b.className = `bubble${alert ? ' alert' : ''}${result ? ' ' + result.overall.verdict : ''}`;
   $('bubble-title').textContent = title;
@@ -66,6 +67,14 @@ function showBubble({ title, result, note = '', alert = false, ask = null, learn
     $('ask-yes').hidden = !ask.yes;
     $('ask-no').hidden = !ask.noLabel;
     $('ask-no').textContent = ask.noLabel || '';
+  }
+  $('notify-row').hidden = !notify;
+  if (notify) {
+    const st = notify.status;
+    $('notify-btn').textContent = st?.state === 'sent' ? 'Text again' : notify.label;
+    $('notify-btn').disabled = st?.state === 'sending';
+    $('notify-status').textContent = st?.text ?? '';
+    $('notify-status').className = `notify-status ${st?.state ?? ''}`;
   }
   b.hidden = false;
   placeBubble();
@@ -167,7 +176,7 @@ const states = {
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
-  'call-alert'({ app, result, bubble = true, prompt = 'ask' }) {
+  'call-alert'({ app, result, bubble = true, prompt = 'ask', notify = null }) {
     setBody('call');
     if (!bubble) {
       hideBubble();
@@ -189,9 +198,10 @@ const states = {
     showBubble({
       title: 'This is likely not a real person speaking.',
       result,
-      note: `Heard on ${app}. Call audio is compressed, so this is less reliable.`,
+      note: `Heard on ${app}. Call audio lowers reliability.`,
       alert: true,
       ask: ASK[prompt] ?? ASK.ask,
+      notify,
     });
   },
 };
@@ -206,6 +216,7 @@ window.wizard.onState((state) => {
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
 $('ask-yes').addEventListener('click', () => window.wizard.endCall());
 $('ask-no').addEventListener('click', () => window.wizard.dismissBubble());
+$('notify-btn').addEventListener('click', () => window.wizard.notify());
 $('learn-more').addEventListener('click', () => window.wizard.learn('scams'));
 $('lesson-back').addEventListener('click', () => {
   if (lesson.page > 0) lesson.page -= 1;

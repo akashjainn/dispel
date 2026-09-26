@@ -51,7 +51,7 @@ body {
 body.watching .stage {
   filter: grayscale(1) brightness(1.1);
   opacity: 0.4;
-  transform: scale(0.75);
+  transform: scale(0.5); /* 1 CSS px per sprite px: still crisp */
   transform-origin: bottom right;
 }
 body.call .stage {
@@ -219,6 +219,32 @@ body.call .stage {
   font-size: 12px;
   font-weight: 700;
   opacity: 0.6;
+}
+
+.notify-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+}
+.btn-notify {
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.notify-status {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.notify-status.sent {
+  color: var(--real);
+}
+.notify-status.failed {
+  color: var(--synthetic);
 }
 
 .bubble-ask {

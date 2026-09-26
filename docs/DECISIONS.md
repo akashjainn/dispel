@@ -61,3 +61,9 @@
 - **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
   v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
   (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
+- **Sat 17:30. Notify a contact (David, app):** on a flagged call the wizard offers "Notify trusted
+  contact" (personal) or "Notify my manager" (work), chosen in the app's Settings. It sends a text
+  from the user's own Mac through Messages (iMessage, else SMS relay), only when the user presses
+  the button. Nothing goes through our server; the contact's name and number stay in the app's
+  local settings file. The text says "likely AI-generated" with the score, never that the caller
+  is certainly fake, and marks mock results as a test.

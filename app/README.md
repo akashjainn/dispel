@@ -11,10 +11,10 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
 - **Check a file:** drop an audio file on the wizard or on the menu-bar icon,
   or click the wizard to pick a file. The wizard answers with a verdict and a score.
 - **Calls (macOS 14.2+):** when Zoom, FaceTime, Teams, Discord, Slack or a
-  browser is using the mic, the wizard sits small and grayed out just outside
-  the call window (right side, else left; inside the top-right corner and
-  click-through only when the call fills the screen), so it never covers the
-  call's End button. The wizard and the colored outline hide while another app
+  browser is using the mic, a small grayed-out wizard sits in the call window's
+  bottom-right corner. It's click-through, so the call's buttons under it
+  still work. The warning bubble (which has buttons) opens in the top-right
+  corner instead, away from the End button. The wizard and the colored outline hide while another app
   is in front and come back when you return to the call. If the voice scores likely real, the call
   window gets a steady green outline and the wizard stays small and gray. If
   the call is flagged, it comes out in full color, the
@@ -22,6 +22,13 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
   call. "Yes, hang up" quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
   for a browser call it asks you to close the tab instead. Turn call watching
   off with "Watch calls" in the tray menu (right-click the icon).
+- **Notify someone:** on a flagged call, the warning bubble has "Notify
+  trusted contact" (Personal) or "Notify my manager" (Work). It texts that
+  person from your Mac's Messages app, only when you press it. Set Personal or
+  Work, the contact's name and number (or iMessage email), and send a test
+  text in Settings (tray menu or right-click the wizard → Settings…). The first
+  text makes macOS ask to let Dispel control Messages. Settings are saved in
+  `~/Library/Application Support/dispel-wizard/settings.json`.
 - **Learn:** the wizard explains what a deepfake is, common deepfake scams, and
   how to protect yourself and your family (safe word, call back, slow down,
   where to report). Open it from the tray menu, by right-clicking the wizard, or

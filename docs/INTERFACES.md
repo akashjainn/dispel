@@ -86,6 +86,11 @@ Renderer → main (each argument is validated in main):
   quit; for them the wizard asks the user to close the call tab.
 - Dropped files never cross the bridge: the preload catches the drop and sends
   the file's path to main, which checks the extension, that it's a file, and its size.
+- `wizard.notify()` is the "Notify trusted contact" / "Notify my manager"
+  button on a flagged call: main texts the contact from Settings through the
+  Mac's Messages app (or opens Settings if nobody is set up).
+- The Settings window has its own bridge (`window.settings`: `get`, `save`,
+  `sendTest`); main answers it only for that window.
 - `wizard.learn(topic?)` opens Learn mode (`deepfake | scams | protect`, or the
   topic list). The lesson text lives in `app/src/renderer/lessons.js`.
 - `wizard.contextMenu()`, `wizard.dismissBubble()`, `wizard.vanished()`,

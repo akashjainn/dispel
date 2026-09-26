@@ -8,6 +8,8 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, sh
 const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
+const { loadSettings, saveSettings, notifyInfo } = require('./settings');
+const { sendText, alertText, testText } = require('./notify');
 
 const ROOT = path.join(__dirname, '..', '..');
 const ASSETS = path.join(ROOT, 'Assets');
@@ -20,8 +22,8 @@ const MAX_FILE_BYTES = 500 * 1024 * 1024;
 // the speech bubble sits to its left.
 const SIZE = {
   plain: { width: 160, height: 240 },
-  small: { width: 120, height: 180 }, // gray "watching" wizard in a call's corner (0.75 scale in wizard.css)
-  bubble: { width: 400, height: 290 }, // taller: the call alert has yes/no buttons
+  small: { width: 80, height: 120 }, // gray "watching" wizard in a call's corner (0.5 scale in wizard.css)
+  bubble: { width: 400, height: 380 }, // tall enough for the call alert's buttons
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
@@ -92,39 +94,29 @@ function defaultAnchor() {
   return { right: workArea.x + workArea.width - EDGE, bottom: workArea.y + workArea.height - EDGE };
 }
 
-// Where the wizard goes during a call. Outside the call window, so it never
-// covers the call's own controls (Zoom and FaceTime put End at the bottom):
-// just past the right edge, else the left edge, bottoms aligned. If neither
-// side has room (maximized or full screen), inside the top-right corner, and
-// the gray watching wizard is click-through there (see placeWizard).
-const CALL_GAP = 28; // clear of the colored ring (it reaches 24px out, see OVERLAY_PAD)
+// Where the wizard goes during a call, inside the call window. The small gray
+// watching wizard sits in the bottom-right corner; it's click-through (see
+// placeWizard), so the call's own buttons under it still work. Anything
+// clickable (the warning bubble with its buttons) goes in the top-right corner
+// instead, away from the End button that Zoom and FaceTime put at the bottom.
 const TITLE_BAR = 32;
 function callPlacement(bounds, size) {
-  if (!bounds) return { anchor: defaultAnchor(), inside: false };
+  if (!bounds) return defaultAnchor();
   const wa = screen.getDisplayMatching(bounds).workArea;
-  const right = bounds.x + bounds.width;
-  const bottom = Math.min(bounds.y + bounds.height, wa.y + wa.height);
-  const fitBottom = Math.max(bottom, wa.y + size.height); // keep the top on screen
-  if (wa.x + wa.width - right >= size.width + CALL_GAP) {
-    return { anchor: { right: right + CALL_GAP + size.width, bottom: fitBottom }, inside: false };
-  }
-  if (bounds.x - wa.x >= size.width + CALL_GAP) {
-    return { anchor: { right: bounds.x - CALL_GAP, bottom: fitBottom }, inside: false };
+  const right = Math.min(bounds.x + bounds.width, wa.x + wa.width) - CALL_INSET;
+  if (mode === 'call-watch') {
+    return { right, bottom: Math.min(bounds.y + bounds.height, wa.y + wa.height) - CALL_INSET };
   }
   const top = Math.max(bounds.y, wa.y) + TITLE_BAR;
-  return { anchor: { right: Math.min(right, wa.x + wa.width) - CALL_INSET, bottom: top + size.height }, inside: true };
+  return { right, bottom: top + size.height };
 }
 
-
-
-// Resize the wizard window around its bottom-right anchor.
 function placeWizard() {
   const size = bubble ? SIZE.bubble : mode === 'call-watch' ? SIZE.small : SIZE.plain;
-  let a = desktopAnchor;
-  let inside = false;
-  if (callSession) ({ anchor: a, inside } = callPlacement(callSession.bounds, size));
-  // Over the call itself, the passive gray wizard lets clicks through to the call.
-  wizard.setIgnoreMouseEvents(inside && mode === 'call-watch');
+  const a = callSession ? callPlacement(callSession.bounds, size) : desktopAnchor;
+  // The small gray wizard watching a call is passive: clicks go straight
+  // through it to whatever is underneath (the call's buttons, other windows).
+  wizard.setIgnoreMouseEvents(mode === 'call-watch');
   wizard.setBounds({
     x: Math.round(a.right - size.width),
     y: Math.round(a.bottom - size.height),
@@ -287,9 +279,14 @@ function callAlertShowing() {
 }
 
 // Put the wizard back in the call's state (after a file check or a message).
+// Everything the warning bubble shows, including the notify button.
+function alertPayload(s) {
+  return { app: s.app, result: s.result, prompt: s.prompt, notify: { ...notifyInfo(), status: s.notifyStatus } };
+}
+
 function showCallMode() {
   const s = callSession;
-  if (s.alerted) setMode('call-alert', { app: s.app, result: s.result, prompt: s.prompt });
+  if (s.alerted) setMode('call-alert', alertPayload(s));
   else setMode('call-watch', { app: s.app });
 }
 
@@ -297,7 +294,63 @@ function showCallMode() {
 function setCallPrompt(prompt) {
   const s = callSession;
   s.prompt = prompt;
-  setMode('call-alert', { app: s.app, result: s.result, prompt });
+  setMode('call-alert', alertPayload(s));
+}
+
+// "Notify trusted contact" / "Notify my manager": text them from Messages.
+// Opens Settings instead if nobody is set up yet.
+async function notifyContact() {
+  const s = callSession;
+  if (!s?.alerted || s.notifyStatus?.state === 'sending') return;
+  const settings = loadSettings();
+  const info = notifyInfo(settings);
+  if (!info.configured) {
+    openSettings();
+    return;
+  }
+  const refresh = () => callSession === s && mode === 'call-alert' && setMode('call-alert', alertPayload(s));
+  s.notifyStatus = { state: 'sending', text: `Texting ${info.who}…` };
+  refresh();
+  const res = await sendText(settings.contact.handle, alertText({ mode: settings.mode, app: s.app, result: s.result }));
+  console.log('[notify]', res.ok ? 'sent' : `failed: ${res.error}`);
+  s.notifyStatus = res.ok ? { state: 'sent', text: `Texted ${info.who}.` } : { state: 'failed', text: res.error };
+  refresh();
+}
+
+// ---------- settings window ----------
+
+let settingsWin = null;
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.show();
+    settingsWin.focus();
+    return;
+  }
+  settingsWin = new BrowserWindow({
+    width: 420,
+    height: 480,
+    resizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    title: 'Dispel Settings',
+    backgroundColor: '#fffaf0',
+    webPreferences: {
+      preload: path.join(ROOT, 'src', 'preload', 'settings.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+    },
+  });
+  settingsWin.setAlwaysOnTop(true, 'screen-saver'); // above the wizard and full-screen calls
+  settingsWin.loadFile(path.join(RENDERER, 'settings.html'));
+  settingsWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  settingsWin.webContents.on('will-navigate', (e) => e.preventDefault());
+  app.focus({ steal: true });
+  settingsWin.on('closed', () => {
+    settingsWin = null;
+    // The notify button's label depends on the settings.
+    if (callSession?.alerted && mode === 'call-alert') setMode('call-alert', alertPayload(callSession));
+  });
 }
 
 async function onCallStarted({ app: callApp, bounds, canEnd, front }) {
@@ -425,6 +478,7 @@ function trayMenu() {
     { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
     { label: 'Learn about deepfakes', click: () => learn() },
+    { label: 'Settings…', click: openSettings },
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -477,6 +531,17 @@ function registerIpc() {
   });
 
   ipcMain.on('wizard:end-call', () => endCall());
+  ipcMain.on('wizard:notify', () => notifyContact());
+
+  // Settings IPC answers only the settings window.
+  const fromSettings = (e) => settingsWin && !settingsWin.isDestroyed() && e.sender === settingsWin.webContents;
+  ipcMain.handle('settings:get', (e) => (fromSettings(e) ? loadSettings() : null));
+  ipcMain.handle('settings:save', (e, s) => (fromSettings(e) ? saveSettings(s) : { ok: false, error: 'denied' }));
+  ipcMain.handle('settings:test', (e) => {
+    if (!fromSettings(e)) return { ok: false, error: 'denied' };
+    const s = loadSettings();
+    return sendText(s.contact.handle, testText(s.mode));
+  });
 
   ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
 
@@ -485,6 +550,7 @@ function registerIpc() {
     Menu.buildFromTemplate([
       { label: 'Check an audio file…', click: pickFile, enabled: !busy },
       { label: 'Learn about deepfakes', click: () => learn() },
+    { label: 'Settings…', click: openSettings },
       { type: 'separator' },
       { label: 'Send wizard away', click: dismiss, enabled: !callSession },
     ]).popup({ window: wizard });
