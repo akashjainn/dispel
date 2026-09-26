@@ -1,0 +1,15 @@
+# Local: `docker compose -f docker/compose.yml up --build` -> http://127.0.0.1:8765
+# On Vultr, cloud-init runs the same file behind Caddy (see infra/vultr).
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    env_file:
+      - path: ../server/.env
+        required: false
+    volumes:
+      - ${MODEL_DIR_HOST:-./models}:/models:ro
+    ports:
+      - "127.0.0.1:8765:8765"
+    restart: unless-stopped

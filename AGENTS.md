@@ -52,10 +52,11 @@ hearsay/            Python package: the forensic pipeline (the core deliverable)
   fusion.py         combines analyzer features into cm-score; trained on
                     NSA's training set with cross-validation
   cli.py            `hearsay predict <dir> -o <team>_predictions.tsv`
-server/             FastAPI wrapper around hearsay/ on 127.0.0.1:8765 (POST /analyze, GET /health)
+server/             FastAPI wrapper around hearsay/ (POST /analyze, GET /health); local 127.0.0.1:8765 or on Vultr
+infra/vultr/       Terraform for the Vultr instance that hosts server/ + inference (see its README)
 app/                Electron wizard client of server/
 ml/                 training, calibration, ablations, evaluation scripts (no weights)
-docker/             Dockerfile and entrypoint that run the CLI on a mounted test set
+docker/             Dockerfiles: the NSA CLI image, and Dockerfile.server + compose.yml for the API
 docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, examples/
 ```
 
@@ -77,7 +78,12 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
 - Audio capture happens only when the user asks, over a short window
   (e.g. "check the last 15 s"). **Never** record continuously, and never store
   or upload audio without an explicit user action.
-- Inference runs locally. Audio never leaves the machine.
+- **Inference and the API run on Vultr** (decided Sat, see DECISIONS.md). The
+  app uploads audio to our own Vultr instance over HTTPS, only when the user
+  asks; the server must not persist audio (process in memory or a temp file,
+  delete after the response) and must not send it to any third party. The pitch
+  and UI copy must say "sent to our server", not "never leaves your machine".
+  The NSA Docker image still runs fully offline.
 
 ## Model facts (don't contradict these in code, UI copy, or the pitch)
 
@@ -169,7 +175,10 @@ Other rules:
 
 Fill these in when each part is scaffolded. Don't guess them.
 - App dev: `TBD`
-- Server dev: `TBD`
+- Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
+- Server tests: `cd server && python -m pytest -q`
+- Server in Docker: `docker compose -f docker/compose.yml up --build`
+- Deploy to Vultr: see `infra/vultr/README.md`
 - Smoke tests: `TBD`
 - NSA TSV: `TBD` (the header is exactly `filename<TAB>cm-score`; see CHALLENGE.md)
 - Docker: `TBD`

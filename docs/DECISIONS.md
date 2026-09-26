@@ -14,3 +14,8 @@
 - **Fri 20:00. ElevenLabs:** we generate voices only from consenting teammates
   and stock library voices. We never clone public figures, including for the
   demo. All generated data is disclosed.
+- **Sat. Hosting (supersedes the "inference runs locally" line above):** the API
+  and inference run on a Vultr instance provisioned by Terraform (`infra/vultr/`).
+  Audio is uploaded to it only on a user action. The server keeps no audio.
+  Deployed access is HTTPS (Caddy) plus a bearer API key. `main` stays free of
+  keys; weights are rsynced to the instance, never committed. (israel/backend-infra-setup)

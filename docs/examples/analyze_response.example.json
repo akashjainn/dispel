@@ -1,5 +1,5 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "clip_id": "00000000-0000-0000-0000-000000000000",
   "duration_s": 12.0,
   "input": { "sample_rate": 48000, "channels": 2, "codec": "opus" },

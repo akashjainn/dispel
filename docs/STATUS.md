@@ -8,15 +8,19 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, model loading in `server/` | NSA data profiling; score v0/v2/v2e on public ElevenLabs sets | | NSA metric and labels |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | TBD | | | |
+| Israel | | `server/`, `infra/`, `docker/Dockerfile.server` | Backend + Vultr infra | israel/backend-infra-setup | Vultr API key; weights from Akash |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
-- Model: v2e frozen before the event (see DECISIONS.md). The server is not built yet.
+- Model: v2e frozen before the event (see DECISIONS.md).
+- Server: scaffolded on `israel/backend-infra-setup`. `/health` and `/analyze` exist and return the mock example (`mock: true`) until hearsay/ is wired in. Vultr Terraform written and validated, **not yet applied**.
 - App: not started.
 - NSA submission: not started. The scoring metric is unknown (see CHALLENGE.md).
 
 ## Requests (changes needed outside your own directory)
-- none
+- Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
+- Akash: `hearsay/` should expose one function the server can call; then replace the mock in `server/app/main.py`.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat · Israel · server/ API scaffold (mock), Vultr Terraform, INTERFACES 0.2, AGENTS/DECISIONS updated for Vultr hosting · israel/backend-infra-setup
 - Fri 20:00 · Akash · repo initialized with docs only ·

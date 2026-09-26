@@ -1,0 +1,96 @@
+name: infra
+
+on:
+  # plan-only check on this branch, since workflow_dispatch needs the file on main
+  push:
+    branches: [israel/backend-infra-setup]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  pull_request:
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "plan = preview only. apply = create/change real Vultr resources (costs credit)."
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+# One Terraform run at a time; never cancel one mid-apply.
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_CLOUD_ORGANIZATION: ${{ vars.TF_CLOUD_ORGANIZATION }}
+  TF_WORKSPACE: ${{ vars.TF_WORKSPACE }}
+  TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+  VULTR_API_KEY: ${{ secrets.VULTR_API_KEY }}
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+  TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
+  TF_VAR_git_ref: ${{ vars.DEPLOY_GIT_REF }}
+
+defaults:
+  run:
+    working-directory: infra/vultr
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  # Needs secrets, so it is skipped for PRs from forks (GitHub withholds them there).
+  plan:
+    needs: validate
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - run: terraform init -input=false
+      - name: plan
+        run: |
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          { echo '### terraform plan'; echo '```'; tail -n 80 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        with:
+          name: tfplan
+          path: infra/vultr/tfplan
+          retention-days: 1
+
+  apply:
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: tfplan
+          path: infra/vultr
+      - run: terraform init -input=false
+      - run: terraform apply -input=false -no-color tfplan
+      - name: outputs
+        run: |
+          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "base_url: $(terraform output -raw base_url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Read the API key locally: terraform output -raw api_key" >> "$GITHUB_STEP_SUMMARY"
