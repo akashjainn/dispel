@@ -119,19 +119,25 @@ def main():
     for i, text in enumerate(sentences, start=1):
         nn = f"{i:02d}"
         src = recordings.get(nn)
-        if src is None:
-            print(f"[{nn}] no recording named {nn}.* in {args.real}, skipping real")
-        else:
-            dst = args.out / "real" / f"{args.speaker}_real_{nn}.wav"
-            to_wav(src, dst)
-            rows.append((dst.name, "bonafide", nn, src.name, f"{duration_s(dst):.2f}", text))
-            print(f"[{nn}] real  {dst.name}")
+        if src is None:  # no real clip means no matched pair: don't spend credits on a lone fake
+            print(f"[{nn}] no recording named {nn}.* in {args.real}, skipping this sentence")
+            continue
+        dst = args.out / "real" / f"{args.speaker}_real_{nn}.wav"
+        to_wav(src, dst)
+        rows.append((dst.name, "bonafide", nn, src.name, f"{duration_s(dst):.2f}", text))
+        print(f"[{nn}] real  {dst.name}")
 
         if not args.skip_fake:
             dst = args.out / "fake" / f"{args.speaker}_fake_{nn}.wav"
             pcm = args.out / "fake_pcm" / dst.name if args.fake_codec else dst
-            if not pcm.exists():  # don't spend credits twice on reruns
+            # Reuse a cached fake only if it was made from the same text, model and voice, so reruns
+            # don't spend credits twice. Fakes from before this sidecar existed have none and are reused.
+            meta = pcm.with_suffix(".json")
+            want = {"text": text, "model": args.model, "voice_id": voice_id}
+            stale = meta.exists() and json.loads(meta.read_text()) != want
+            if not pcm.exists() or stale:
                 write_pcm_wav(tts(text, voice_id, api_key, args.model), pcm)
+                meta.write_text(json.dumps(want))
             source = f"elevenlabs:{args.model}"
             if args.fake_codec:
                 aac_roundtrip(pcm, dst, "128k")

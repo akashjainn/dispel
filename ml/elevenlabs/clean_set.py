@@ -70,7 +70,7 @@ def main():
     for sub in ("real", "fake"):
         (out / sub).mkdir(parents=True, exist_ok=True)
 
-    header, rows = None, []
+    header, rows, seen = None, [], set()
     with tempfile.TemporaryDirectory() as tmp:
         for set_dir in args.sets:
             set_dir = set_dir.expanduser()
@@ -81,9 +81,15 @@ def main():
                 sub = "real" if row["label"] == "bonafide" else "fake"
                 src = set_dir / sub / row["filename"]
                 dst = out / sub / row["filename"]
+                if dst in seen:  # two sets with the same speaker tag would overwrite each other
+                    sys.exit(f"{row['filename']} appears in more than one input set; use distinct --speaker tags")
+                seen.add(dst)
 
                 trimmed = Path(tmp) / row["filename"]
                 trim_edges(src, trimmed)
+                if duration_s(trimmed) == 0:  # nothing above the threshold: no audio left to level
+                    print(f"{row['filename']:18} skipped: no audio above the trim threshold")
+                    continue
                 mean, peak = volume_stats(trimmed)
                 gain = min(TARGET_DB - mean, PEAK_CEIL_DB - peak)
                 ffmpeg("-i", str(trimmed), "-af", f"volume={gain:.2f}dB", "-ac", "1", "-ar", str(SR),
