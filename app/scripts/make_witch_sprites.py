@@ -5,7 +5,8 @@ bob, vanish and smoke timing), so she lines up with the cauldron exactly like
 he does. Per frame, the wizard is split into regions by color and
 connectivity (hat, face, beard, robe), and each region is redrawn:
 
-- hat: black, stars removed, a wide brim, a purple band and a gold buckle
+- hat: redrawn as a witch's hat: a tall cone with a bent tip, a wide brim,
+  a purple band and a gold buckle
 - face: redrawn (eyes with lashes, brows, blush, lips; a tapered chin and neck),
   one expression per sheet row
 - hair: side-swept bangs and long ginger hair past the shoulders
@@ -134,6 +135,9 @@ def witch_frame(src, expression):
     fl = min(x for x, y in skin if y > ft + 3)
     fr = max(x for x, y in skin if y > ft + 3 and rgb(x, y) == SKIN)
     face = lambda x, y, c: y <= floor and put(x, y, c)
+    # The wizard's floppy hat goes; a proper witch's hat is drawn below (brim, band, cone).
+    for p in hat:
+        o[p] = (0, 0, 0, 0)
     cx = fl + 10  # between the eyes (mouth columns are cx - 1, cx)
     chin = ft + 14
 
@@ -237,18 +241,30 @@ def witch_frame(src, expression):
         put(x, ft - 1, HAT_SH if x in (bl, br) else HAT)
         if bl + 3 <= x <= br - 3:
             put(x, ft, HAT_SH)
-    # Band and buckle just above the brim, on the crown only.
-    band = (ft - 5, ft - 4)
-    crown = [x for x in range(FW) if any((x, y) in hat for y in band)]
-    if crown:
-        for x in crown:
-            for y in band:
-                if (x, y) in hat:
-                    put(x, y, BAND)
-        bx = (min(crown) + max(crown)) // 2
-        for x in range(bx - 2, bx + 2):
-            for y in band:
-                put(x, y, BUCKLE if x in (bx - 2, bx + 1) or y == band[0] else HAT_SH)
+    # Crown: a tall cone standing on the brim, lit on the left, bending over to
+    # the right near the tip, which flops down.
+    hc = fl + 10
+    height, base = 13, 16
+    for i in range(height):  # i = 0 just above the band
+        y = ft - 6 - i
+        t = i / (height - 1)
+        w = max(2, round(base * (1 - t) ** 0.95))
+        x0 = hc - base // 2 + (base - w) // 2 + round(6 * t ** 2.2)
+        for x in range(x0, x0 + w):
+            lit = x == x0 and w > 2
+            shade = x >= x0 + w - 2 and w > 3
+            put(x, y, HAT_HI if lit else HAT_SH if shade else HAT)
+    # The tip flops over to the right, two pixels thick, joined to the top row.
+    tip = (x0 + w, y)
+    for dx, dy in ((0, 0), (0, 1), (1, 1), (1, 2), (2, 2), (2, 3)):
+        put(tip[0] + dx, tip[1] + dy, HAT_SH if dy >= 2 else HAT)
+    # Band and buckle around the base of the cone.
+    for x in range(hc - base // 2, hc + base // 2):
+        for y in (ft - 5, ft - 4):
+            put(x, y, BAND)
+    for x in range(hc - 2, hc + 2):
+        for y in (ft - 5, ft - 4):
+            put(x, y, BUCKLE if x in (hc - 2, hc + 1) or y == ft - 5 else HAT_SH)
     return out
 
 
