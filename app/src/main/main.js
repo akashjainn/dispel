@@ -40,7 +40,7 @@ let busy = false; // a file analysis is running
 let callSession = null; // { id, app, bounds, canEnd, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
 let character = 'wizard'; // wizard | witch, loaded from prefs.json once the app is ready
-let style = '2d'; // 2d (pixel art) | 3d (ray-traced voxels)
+let style = '2d'; // 2d (pixel art) | 3d (pre-rendered 3D sprites)
 
 // ---------- windows ----------
 
