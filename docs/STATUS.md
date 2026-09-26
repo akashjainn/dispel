@@ -5,7 +5,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 
 | Person | GitHub | Owns | Current task | Branch | Blocked on |
 |---|---|---|---|---|---|
-| Akash (repo owner) | akashjainn | `ml/`, model loading in `server/` | NSA data profiling; score v0/v2/v2e on public ElevenLabs sets | | NSA metric and labels |
+| Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | TBD | | | |
 | Israel | | `server/`, `infra/`, `docker/Dockerfile.server` | Backend + Vultr infra | israel/backend-infra-setup | Vultr API key; weights from Akash |
@@ -14,15 +14,15 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 ## Current state
 - Model: v3p6 (six analyzers; nsa/app profiles), see DECISIONS.md and ml/README.md. Calibration on new voices is a known gap.
 - Live server: see the latest `infra` run summary or `terraform output base_url` (the URL changes when the server is replaced). Deploys to it are automatic on merge to `main`.
-- Server: scaffolded on `israel/backend-infra-setup`. `/health` and `/analyze` exist and return the mock example (`mock: true`) until hearsay/ is wired in. Vultr Terraform written and validated, **not yet applied**.
+- Server: loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; otherwise `/analyze` returns the mock example (`mock: true`). Weights still need to be rsynced to the Vultr instance.
 - App: not started.
 - NSA submission: TSV writer + validator in `hearsay/cli.py`; metric known (minDCF, see CHALLENGE.md). Test audio delivery still unknown.
 
 ## Requests (changes needed outside your own directory)
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
-- Akash: `hearsay/` should expose one function the server can call; then replace the mock in `server/app/main.py`.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 05:00 · Akash · PR #8 review fixes: bounded audio decode, model.name format documented, LFCC model defined once, docs · PR #8
 - Sat 04:10 · Akash · six analyzers (lfcc, spectral, voice, rhythm added), nsa/app fusion profiles, ablation + NSA-reals safety check in ml/README.md · akash/hearsay-pipeline
 - Sat 02:50 · Akash · hearsay/ pipeline (v3 + prosody fusion, TSV writer/validator), server wired to it (mock when no weights), CPU torch in Dockerfile.server, INTERFACES 0.3 · akash/hearsay-pipeline
 - Sat · Israel · server/ API scaffold (mock), Vultr Terraform, INTERFACES 0.2, AGENTS/DECISIONS updated for Vultr hosting · israel/backend-infra-setup

@@ -39,7 +39,7 @@ Response 200:
 | `clip_id` | string | uuid |
 | `duration_s` | float | clip length in seconds |
 | `input` | object | `{ "sample_rate": int, "channels": int, "codec": str }` |
-| `model` | object | `{ "name": str, "release": str }` (e.g. `v3p`) |
+| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v3p6/app", "release": "2026-09-26"}`. `/health` `model` is the release alone (`v3p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
 | `overall.llr` | float | natural-log likelihood ratio (synthetic vs real), capped at ±ln(100) |
 | `overall.prior` | float | the prior that was used |
 | `overall.probability` | float | sigmoid(llr + logit(prior)), between 0 and 1 |
@@ -72,6 +72,6 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
-- 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is the release name (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.
+- 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is `<release>/<profile>` (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.
 - 0.2 (no bump): added the `/` landing page.
 - 0.2: configurable base URL, bearer auth, `mock`/`weights_found` in /health, `bad_request`/`unauthorized` errors.

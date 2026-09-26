@@ -37,4 +37,5 @@
   bandwidth B2 are excluded because they differ between NSA's ffmpeg-resampled real clips and ours. All 242 NSA
   LJRealResampled clips score like our validation reals (none near the threshold).
 - **Sat 04:10. Two fusion profiles:** `nsa` (all six) for the TSV; `app` (v3 + prosody) for the server, because on
-  the teammate check the six-way fusion ranked worse (AUC 0.935 vs 0.992). Details in ml/README.md.
+  the teammate check the six-way fusion ranked worse: AUC 0.935 vs 0.992 for the `app` profile, both refit on the v3
+  epoch-2 checkpoint (the earlier 0.98 above is v3p on the epoch-1 checkpoint). Details in ml/README.md.

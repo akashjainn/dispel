@@ -1,6 +1,7 @@
 """LFCC + LCNN spoof detector (hand-crafted spectral front end), robust to NSA-style
 noise and time-stretch. Runs on Windows (MSI RTX 4070 laptop) or Linux.
 
+Run from a repo checkout (the model is imported from hearsay/analyzers/lfcc.py).
 Data: make_lfcc_subset.py output (meta.csv + train/, val_clean/, val_atempo/ 16 kHz WAVs).
 Training augmentation (identical for real and fake, labels unchanged):
   silence trim + random pad, random gain, time-stretch p=0.7 rate U(0.85,1.15) via
@@ -11,6 +12,9 @@ Score convention: higher = more synthetic (logit[fake] - logit[real]).
 """
 import argparse, csv, math, os, random, time, json
 import numpy as np, soundfile as sf, torch, torch.nn as nn, torch.nn.functional as F
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root, for hearsay/
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
 SR, SEG = 16000, 64000
@@ -119,69 +123,8 @@ def eval_collate(b):
 
 
 # ---------------- model ----------------
-class LFCC(nn.Module):
-    def __init__(self, n_fft=512, win=320, hop=160, n_filt=20, n_ceps=20):
-        super().__init__()
-        self.n_fft, self.win, self.hop = n_fft, win, hop
-        self.register_buffer("window", torch.hann_window(win))
-        nb = n_fft // 2 + 1
-        edges = np.linspace(0, nb - 1, n_filt + 2)
-        fb = np.zeros((n_filt, nb), np.float32)
-        for m in range(n_filt):
-            l, c, r = edges[m], edges[m + 1], edges[m + 2]
-            k = np.arange(nb)
-            fb[m] = np.clip(np.minimum((k - l) / (c - l), (r - k) / (r - c)), 0, None)
-        self.register_buffer("fb", torch.from_numpy(fb))
-        n = np.arange(n_filt)
-        dct = np.cos(np.pi / n_filt * (n[None, :] + 0.5) * np.arange(n_ceps)[:, None]) * np.sqrt(2 / n_filt)
-        dct[0] /= np.sqrt(2)
-        self.register_buffer("dct", torch.from_numpy(dct.astype(np.float32)))
-
-    @staticmethod
-    def delta(x):  # x: B,C,T
-        p = F.pad(x, (1, 1), mode="replicate")
-        return (p[..., 2:] - p[..., :-2]) / 2
-
-    def forward(self, wav):  # B,N -> B,60,T
-        wav = wav - wav.mean(-1, keepdim=True)
-        wav = torch.cat([wav[:, :1], wav[:, 1:] - 0.97 * wav[:, :-1]], 1)  # pre-emphasis
-        spec = torch.stft(wav, self.n_fft, self.hop, self.win, self.window, return_complex=True).abs() ** 2
-        fbe = torch.log(torch.matmul(self.fb, spec) + 1e-7)
-        c = torch.matmul(self.dct, fbe)
-        d1 = self.delta(c)
-        feat = torch.cat([c, d1, self.delta(d1)], 1)
-        return (feat - feat.mean(-1, keepdim=True)) / (feat.std(-1, keepdim=True) + 1e-5)  # per-utterance CMVN
-
-
-class MFM(nn.Module):
-    def forward(self, x):
-        a, b = x.chunk(2, 1)
-        return torch.max(a, b)
-
-
-def cm(i, o, k):
-    return nn.Sequential(nn.Conv2d(i, 2 * o, k, padding=k // 2), MFM())
-
-
-class LCNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.front = LFCC()
-        self.net = nn.Sequential(
-            cm(1, 32, 5), nn.MaxPool2d(2),
-            cm(32, 32, 1), nn.BatchNorm2d(32), cm(32, 48, 3), nn.MaxPool2d(2), nn.BatchNorm2d(48),
-            cm(48, 48, 1), nn.BatchNorm2d(48), cm(48, 64, 3), nn.MaxPool2d(2),
-            cm(64, 64, 1), nn.BatchNorm2d(64), cm(64, 32, 3), nn.BatchNorm2d(32),
-            cm(32, 32, 1), nn.BatchNorm2d(32), cm(32, 32, 3), nn.MaxPool2d(2), nn.Dropout(0.3))
-        self.lstm = nn.LSTM(32 * 3, 48, num_layers=2, batch_first=True, bidirectional=True)
-        self.out = nn.Linear(96, 2)
-
-    def forward(self, wav):
-        x = self.net(self.front(wav).unsqueeze(1))  # B,32,F',T'
-        x = x.permute(0, 3, 1, 2).flatten(2)  # B,T',32*F'
-        x = x[..., :96] if x.shape[-1] >= 96 else F.pad(x, (0, 96 - x.shape[-1]))
-        h, _ = self.lstm(x)
-        return self.out((h + x).mean(1))
+# One definition for training and inference: hearsay/analyzers/lfcc.py (front end + LCNN).
+from hearsay.analyzers.lfcc import LCNN  # noqa: E402
 
 
 # ---------------- metrics ----------------

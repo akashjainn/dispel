@@ -11,6 +11,7 @@ import soundfile as sf
 import soxr
 
 SR = 16000
+MAX_DECODE_S = 121.0  # decode at most this much; Pipeline.analyze still rejects > 120 s as too_long
 
 
 def _probe(path):
@@ -26,8 +27,10 @@ def _probe(path):
 
 
 def _ffmpeg_decode(path, sr=48000):
-    out = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", str(sr),
-                          "-f", "f32le", "pipe:1"], capture_output=True, timeout=120, check=True).stdout
+    # -t caps the decoded duration: a 25 MB low-bitrate upload can hold hours of audio (GBs as float32)
+    out = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", str(sr),
+                          "-t", str(MAX_DECODE_S), "-f", "f32le", "pipe:1"],
+                         stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True).stdout
     return np.frombuffer(out, dtype="<f4").copy(), sr
 
 
@@ -45,7 +48,8 @@ def load(src):
     try:
         info = _probe(path)
         try:
-            x, sr = sf.read(path, dtype="float32", always_2d=True)
+            nfo = sf.info(path)
+            x, sr = sf.read(path, frames=int(MAX_DECODE_S * nfo.samplerate), dtype="float32", always_2d=True)
             if info is None:
                 info = {"sample_rate": sr, "channels": x.shape[1], "codec": "pcm"}
             x = x.mean(1)
