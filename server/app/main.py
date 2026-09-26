@@ -1,12 +1,16 @@
 """FastAPI wrapper around the hearsay pipeline. Contract: docs/INTERFACES.md.
 
 If MODEL_DIR contains hearsay.json the real pipeline is loaded at startup (mock: false).
-Otherwise the canned example is returned (mock: true), so the app and tests work without weights.
+Otherwise a demo answer built from the canned example is returned (mock: true), so the app and tests work
+without weights: about 70% likely synthetic, 30% likely real. Calls may omit the file while mocked (no call
+audio is captured yet).
 Requests that carry X-Dispel-Client (an anonymous per-install UUID) are recorded in store.py for GET /history."""
 import hmac
 import json
 import logging
+import math
 import os
+import random
 import threading
 import time
 import uuid
@@ -20,12 +24,13 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import store
 
-VERSION = "0.4"
+VERSION = "0.5"
 # Anything ffmpeg can decode; video containers keep only their audio track.
 ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".oga", ".opus", ".flac", ".aac", ".mp4", ".mov"}
 SOURCES = {"file", "call"}
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 25 * 1024 * 1024))
 EXAMPLE = Path(__file__).resolve().parents[2] / "docs" / "examples" / "analyze_response.example.json"
+MOCK_SYNTHETIC_SHARE = 0.7  # demo answers only: share that come out likely synthetic, the rest likely real
 log = logging.getLogger("dispel")
 
 _PIPE = None
@@ -134,7 +139,7 @@ def _run(data: bytes, prior: float):
 
 
 @app.post("/analyze", dependencies=[Depends(require_key)])
-async def analyze(file: UploadFile = File(...), prior: float = Form(0.5), source: str = Form("file"),
+async def analyze(file: UploadFile | None = File(None), prior: float = Form(0.5), source: str = Form("file"),
                   client: str | None = Depends(client_id)):
     resp = await _analyze(file, prior, source)
     if client:
@@ -152,12 +157,49 @@ async def history(limit: int = Query(20, ge=1, le=100), client: str | None = Dep
     return {"client_id": client, "items": await run_in_threadpool(store.history, client, limit)}
 
 
-async def _analyze(file: UploadFile, prior: float, source: str) -> dict:
+def _sigmoid(t: float) -> float:
+    return 1.0 / (1.0 + math.exp(-t))
+
+
+def _mock(prior: float, t0: float) -> dict:
+    """The canned example, turned into a likely-synthetic or likely-real demo answer (MOCK_SYNTHETIC_SHARE)."""
+    resp = json.loads(EXAMPLE.read_text())
+    synthetic = random.random() < MOCK_SYNTHETIC_SHARE
+    llr = round(random.uniform(1.8, 3.5) if synthetic else -random.uniform(1.8, 3.5), 2)
+    p = _sigmoid(llr + math.log(prior / (1 - prior))) if 0 < prior < 1 else prior
+    verdict = "likely_synthetic" if p >= 0.75 else "likely_real" if p <= 0.25 else "inconclusive"
+    dl, prosody = resp["analyzers"]
+    dl["llr_contribution"], prosody["llr_contribution"] = round(llr * 0.75, 2), round(llr * 0.25, 2)
+    if not synthetic:
+        for seg in resp["segments"]:
+            seg["llr"] = round(-random.uniform(1.2, 3.5), 2)
+            seg["probability"] = round(_sigmoid(seg["llr"]), 3)
+        dl["finding"] = f"Neural detector score {llr * 1.1:+.1f} over 3 window(s) of 4 s."
+        prosody["finding"] = "Prosody: pitch range, pitch movement, shimmer and jitter all typical of real speech."
+        resp["limitations"] = [
+            "This model has not been validated on every commercial voice generator.",
+            "A 'likely real' result is not proof the voice is genuine: new voice clones can score low.",
+        ]
+    resp["overall"] = {"llr": llr, "prior": prior, "probability": round(p, 3), "verdict": verdict}
+    resp["version"] = VERSION
+    resp["clip_id"] = str(uuid.uuid4())
+    resp["timing_ms"] = int((time.perf_counter() - t0) * 1000)
+    resp["mock"] = True
+    return resp
+
+
+async def _analyze(file: UploadFile | None, prior: float, source: str) -> dict:
     t0 = time.perf_counter()
     if not 0.0 <= prior <= 1.0:
         raise ApiError(400, "bad_request", "prior must be between 0 and 1")
     if source not in SOURCES:
         raise ApiError(400, "bad_request", "source must be file or call")
+    if file is None:  # calls have no captured audio yet; only the mock can answer them
+        if source != "call":
+            raise ApiError(400, "bad_request", "file is required")
+        if _PIPE is not None:
+            raise ApiError(400, "too_short", "no call audio sent")
+        return _mock(prior, t0)
     if Path(file.filename or "").suffix.lower() not in ALLOWED_EXT:
         raise ApiError(400, "decode_failed", "unsupported file type")
     data = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -167,13 +209,7 @@ async def _analyze(file: UploadFile, prior: float, source: str) -> dict:
         raise ApiError(400, "too_short", "empty file")
 
     if _PIPE is None:
-        resp = json.loads(EXAMPLE.read_text())
-        resp["version"] = VERSION
-        resp["clip_id"] = str(uuid.uuid4())
-        resp["overall"]["prior"] = prior
-        resp["timing_ms"] = int((time.perf_counter() - t0) * 1000)
-        resp["mock"] = True
-        return resp
+        return _mock(prior, t0)
     try:
         resp = await run_in_threadpool(_run, data, prior)  # audio lives only in memory / a deleted temp file
     except ValueError as e:

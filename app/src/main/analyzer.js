@@ -1,10 +1,12 @@
-// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.4).
+// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.5).
 //
-// File checks go to the server (POST /analyze) when a server URL is set in
+// Checks go to the server (POST /analyze) when a server URL is set in
 // config.js; while the server has no model it answers with demo data
-// (`mock: true`). Without a server URL, and for calls (no audio is captured
-// yet), the result is a local MOCK that flags the audio as likely synthetic
-// after a short delay that stands in for inference time.
+// (`mock: true`), about 70% likely synthetic and 30% likely real. Calls send no
+// audio (none is captured yet), so only a mocked server can answer them.
+// Without a server URL, or when the server can't answer a call, the result is
+// a local MOCK with the same 70/30 mix, after a short delay that stands in for
+// inference time.
 //
 // Errors thrown here carry `userMessage`, which the wizard shows as-is.
 
@@ -14,6 +16,7 @@ const path = require('node:path');
 const { loadConfig, clientId } = require('./config');
 
 const MOCK_LATENCY_MS = { file: 2500, call: 3500 };
+const MOCK_SYNTHETIC_SHARE = 0.7; // share of mock results that come out likely synthetic
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // server limit (INTERFACES.md)
 const REQUEST_TIMEOUT_MS = 90_000; // CPU inference on a 2-minute clip, plus upload
 
@@ -35,14 +38,16 @@ function userError(userMessage, detail) {
   return err;
 }
 
-async function mockAnalyze(source) {
+async function mockAnalyze(source, { wait = true } = {}) {
   const started = Date.now();
-  await sleep(MOCK_LATENCY_MS[source]);
+  if (wait) await sleep(MOCK_LATENCY_MS[source]);
 
-  const probability = Math.round((0.86 + Math.random() * 0.12) * 1000) / 1000;
+  const synthetic = Math.random() < MOCK_SYNTHETIC_SHARE;
+  const score = synthetic ? 0.86 + Math.random() * 0.12 : 0.02 + Math.random() * 0.2;
+  const probability = Math.round(score * 1000) / 1000;
   const llr = Math.log(probability / (1 - probability));
   return {
-    version: '0.4',
+    version: '0.5',
     clip_id: crypto.randomUUID(),
     duration_s: null,
     input: null,
@@ -66,14 +71,16 @@ const SERVER_ERRORS = {
   unauthorized: 'The server didn’t accept my key. Check the app’s config.',
 };
 
+// filePath is null for calls: no call audio is captured yet.
 async function remoteAnalyze(source, filePath, { serverUrl, apiKey }) {
-  const { size } = await fs.stat(filePath);
-  if (size > MAX_UPLOAD_BYTES) throw userError(SERVER_ERRORS.too_long);
-
-  // Uploaded only because the user dropped or picked this file, and only to
-  // our own server, which deletes it after answering (AGENTS.md).
   const form = new FormData();
-  form.append('file', new Blob([await fs.readFile(filePath)]), path.basename(filePath));
+  if (filePath) {
+    const { size } = await fs.stat(filePath);
+    if (size > MAX_UPLOAD_BYTES) throw userError(SERVER_ERRORS.too_long);
+    // Uploaded only because the user dropped or picked this file, and only to
+    // our own server, which deletes it after answering (AGENTS.md).
+    form.append('file', new Blob([await fs.readFile(filePath)]), path.basename(filePath));
+  }
   form.append('source', source);
   const headers = { 'X-Dispel-Client': clientId() };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
@@ -103,8 +110,17 @@ async function remoteAnalyze(source, filePath, { serverUrl, apiKey }) {
 // source: "file" | "call". filePath is required for "file".
 async function analyze(source, filePath) {
   const config = loadConfig();
-  if (source === 'file' && config.serverUrl) return remoteAnalyze(source, filePath, config);
-  return mockAnalyze(source);
+  if (!config.serverUrl) return mockAnalyze(source);
+  if (source === 'file') return remoteAnalyze(source, filePath, config);
+  // Keep the call pacing of the local mock: the wizard "listens" before answering.
+  const [result] = await Promise.all([
+    remoteAnalyze('call', null, config).catch((err) => {
+      console.error('[analyzer] server could not check the call, using a local mock:', err.message);
+      return null;
+    }),
+    sleep(MOCK_LATENCY_MS.call),
+  ]);
+  return result ?? mockAnalyze('call', { wait: false });
 }
 
 module.exports = { analyze, verdictFor, SYNTHETIC_AT };
