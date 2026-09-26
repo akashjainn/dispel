@@ -6,7 +6,7 @@ const path = require('node:path');
 const { app } = require('electron');
 
 // Both characters share one frame layout (see Assets/ and sprites.js). Each
-// has a pixel-art look (2d) and a pre-rendered clay look (3d, Assets/3d/).
+// has a pixel-art look (2d) and a ray-traced voxel look (3d, Assets/3d/).
 const CHARACTERS = ['wizard', 'witch'];
 const STYLES = ['2d', '3d'];
 const DEFAULTS = { character: 'wizard', style: '2d' };

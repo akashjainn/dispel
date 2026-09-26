@@ -3,22 +3,22 @@
 const $ = (id) => document.getElementById(id);
 
 // Back to front, as in focus-wizard: pot, wizard (or witch), wand, poof. Every
-// layer has a pixel-art (2d) and a pre-rendered clay (3d) sheet.
+// layer has a pixel-art (2d) and a ray-traced voxel (3d) sheet.
 const px = (name) => `../../Assets/${name}`;
-const clay = (name) => ({ src: `../../Assets/3d/${name}`, scale: 4 });
+const voxel = (name) => ({ src: `../../Assets/3d/${name}`, scale: 4 });
 const stage = new Stage($('stage'));
-const potLayer = stage.add({ '2d': px('pot-sheet.png'), '3d': clay('pot-sheet.png') }, emptyPot);
+const potLayer = stage.add({ '2d': px('pot-sheet.png'), '3d': voxel('pot-sheet.png') }, emptyPot);
 const wizardLayer = stage.add(
   {
     'wizard-2d': px('wizard-sprites.png'),
     'witch-2d': px('witch-sprites.png'),
-    'wizard-3d': clay('wizard-sprites.png'),
-    'witch-3d': clay('witch-sprites.png'),
+    'wizard-3d': voxel('wizard-sprites.png'),
+    'witch-3d': voxel('witch-sprites.png'),
   },
   noStewShadow,
 );
-const wandLayer = stage.add({ '2d': px('wand-hand.png'), '3d': clay('wand-hand.png') });
-const poofLayer = stage.add({ '2d': px('wizard-poof.png'), '3d': clay('wizard-poof.png') });
+const wandLayer = stage.add({ '2d': px('wand-hand.png'), '3d': voxel('wand-hand.png') });
+const poofLayer = stage.add({ '2d': px('wizard-poof.png'), '3d': voxel('wizard-poof.png') });
 
 // ---------- looks: wizard or witch, 2D or 3D ----------
 
