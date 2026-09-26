@@ -1,4 +1,4 @@
-// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.4).
+// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.5).
 //
 // Where results come from is picked in the tray's "Results from" menu:
 //   server     (default) checks go to POST /analyze on the server in
@@ -55,7 +55,7 @@ async function mockAnalyze(source) {
   const probability = Math.round((base + Math.random() * 0.12) * 1000) / 1000;
   const llr = Math.log(probability / (1 - probability));
   return {
-    version: '0.4',
+    version: '0.5',
     clip_id: crypto.randomUUID(),
     duration_s: null,
     input: null,

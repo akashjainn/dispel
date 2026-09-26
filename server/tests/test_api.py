@@ -94,3 +94,27 @@ def test_bad_client_id_and_source(data_dir):
 
 def test_video_container_accepted():
     assert client.post("/analyze", files={"file": ("call.mp4", b"xxxx", "video/mp4")}).status_code == 200
+
+
+@pytest.mark.parametrize("roll,verdict", [(0.1, "likely_synthetic"), (0.9, "likely_real")])
+def test_mock_verdict_mix(monkeypatch: pytest.MonkeyPatch, roll, verdict):
+    import app.main as m
+    monkeypatch.setattr(m.random, "random", lambda: roll)
+    body = client.post("/analyze", files=FILE).json()
+    assert body["mock"] is True and body["overall"]["verdict"] == verdict
+    total = sum(a["llr_contribution"] for a in body["analyzers"])
+    assert abs(total - body["overall"]["llr"]) < 0.02
+
+
+def test_mock_is_mostly_synthetic():
+    import app.main as m
+    m.random.seed(0)
+    verdicts = [client.post("/analyze", files=FILE).json()["overall"]["verdict"] for _ in range(300)]
+    assert 0.6 < verdicts.count("likely_synthetic") / len(verdicts) < 0.8
+    assert set(verdicts) == {"likely_synthetic", "likely_real"}
+
+
+def test_call_without_audio_gets_mock():
+    r = client.post("/analyze", data={"source": "call"})
+    assert r.status_code == 200 and r.json()["mock"] is True
+    assert client.post("/analyze", data={"source": "file"}).json()["error"] == "bad_request"
