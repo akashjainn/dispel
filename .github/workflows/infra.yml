@@ -32,6 +32,7 @@ env:
   TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
   TF_VAR_ssh_allowed_cidrs: ${{ vars.SSH_ALLOWED_CIDRS }}
   TF_VAR_git_ref: ${{ vars.DEPLOY_GIT_REF }}
+  TF_VAR_deploy_public_key: ${{ vars.DEPLOY_PUBLIC_KEY }}
 
 defaults:
   run:

@@ -46,10 +46,11 @@ resource "vultr_instance" "api" {
   backups           = "disabled"
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    repo_url = var.repo_url
-    git_ref  = var.git_ref
-    domain   = var.domain
-    device   = var.device
-    api_key  = random_password.api_key.result
+    repo_url          = var.repo_url
+    git_ref           = var.git_ref
+    domain            = var.domain
+    device            = var.device
+    api_key           = random_password.api_key.result
+    deploy_public_key = var.deploy_public_key
   })
 }

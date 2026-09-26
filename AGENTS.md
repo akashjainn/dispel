@@ -53,7 +53,7 @@ hearsay/            Python package: the forensic pipeline (the core deliverable)
                     NSA's training set with cross-validation
   cli.py            `hearsay predict <dir> -o <team>_predictions.tsv`
 server/             FastAPI wrapper around hearsay/ (POST /analyze, GET /health); local 127.0.0.1:8765 or on Vultr
-infra/vultr/       Terraform for the Vultr instance that hosts server/ + inference (see its README)
+infra/vultr/        Terraform for the Vultr instance that hosts server/ + inference (see its README)
 app/                Electron wizard client of server/
 ml/                 training, calibration, ablations, evaluation scripts (no weights)
 docker/             Dockerfiles: the NSA CLI image, and Dockerfile.server + compose.yml for the API
@@ -178,7 +178,7 @@ Fill these in when each part is scaffolded. Don't guess them.
 - Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
 - Server tests: `cd server && python -m pytest -q`
 - Server in Docker: `docker compose -f docker/compose.yml up --build`
-- Deploy to Vultr: see `infra/vultr/README.md`
+- Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Server replacement/infra changes: Actions -> infra -> Run workflow. Details in `infra/vultr/README.md`.
 - Smoke tests: `TBD`
 - NSA TSV: `TBD` (the header is exactly `filename<TAB>cm-score`; see CHALLENGE.md)
 - Docker: `TBD`

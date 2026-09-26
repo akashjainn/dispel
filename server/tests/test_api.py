@@ -7,6 +7,11 @@ client = TestClient(app)
 FILE = {"file": ("clip.wav", b"RIFFxxxx", "audio/wav")}
 
 
+def test_landing_page():
+    r = client.get("/")
+    assert r.status_code == 200 and "Team Gemini" in r.text
+
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200 and r.json()["ok"] is True

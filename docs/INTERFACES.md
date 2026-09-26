@@ -14,6 +14,9 @@ Deployed (Vultr): `https://<host>` from `terraform output base_url` (see
 `GET /health` is public. With no `API_KEY` set on the server (local dev), auth is off.
 A wrong or missing key gives 401 `{"error": "unauthorized", ...}`.
 
+### GET /
+A public HTML landing page ("Team Gemini") for people who open the server URL in a browser. Not part of the API; the app never calls it.
+
 ### GET /health
 Returns `{"ok": true, "model": "v2e", "device": "cuda|cpu", "version": "0.2", "mock": bool, "weights_found": bool}`.
 `mock: true` means the response is the canned example, not a real model result. The UI must show a "demo data" badge when it is true.
@@ -67,4 +70,5 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.2 (no bump): added the `/` landing page.
 - 0.2: configurable base URL, bearer auth, `mock`/`weights_found` in /health, `bad_request`/`unauthorized` errors.

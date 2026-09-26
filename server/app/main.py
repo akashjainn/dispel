@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 VERSION = "0.2"
 ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg"}
@@ -50,6 +50,19 @@ def require_key(authorization: str | None = Header(default=None)) -> None:
 def _weights_present() -> bool:
     d = os.getenv("MODEL_DIR")
     return bool(d) and Path(d).is_dir() and any(Path(d).iterdir())
+
+
+LANDING = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Gemini</title>
+<style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:#0b0d12;color:#e8eaf0;
+font:600 clamp(2rem,8vw,4rem) system-ui,sans-serif;letter-spacing:.02em}</style></head>
+<body><h1>Team Gemini</h1></body></html>"""
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def landing():
+    return LANDING
 
 
 @app.get("/health")

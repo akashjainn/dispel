@@ -49,3 +49,8 @@ variable "device" {
   type        = string
   default     = "cpu"
 }
+
+variable "deploy_public_key" {
+  description = "Public half of the CI deploy key. It can only run /opt/dispel/deploy.sh on the server as user `deploy`."
+  type        = string
+}
