@@ -7,7 +7,7 @@ variable "region" {
 variable "plan" {
   description = "Instance plan id. Default is CPU (fine for the mock API and short-clip CPU inference). For GPU, pick a vcg-* plan available in your region: vultr-cli plans list --type vcg"
   type        = string
-  default     = "vx1-g-4c-16g"
+  default     = "vc2-4c-8gb"
 }
 
 variable "os_id" {

@@ -26,6 +26,6 @@ ssh root@<ip> 'cd /opt/dispel && docker compose -f compose.prod.yml restart serv
 - Tear down after the event: `terraform destroy` (billing is hourly).
 
 ## Notes
-- Plan id `vx1-g-4c-16g` and os_id `2284` are defaults not yet verified against your account; check with `vultr-cli`.
+- Plan id `vc2-4c-8gb` (atl, ~$0.06/hr) and os_id `2284` were verified with `vultr-cli` on 2026-09-26.
 - `terraform.tfstate` contains the API key; it is git-ignored. Don't share it.
 - Without `domain`, TLS uses `<ip-with-dashes>.sslip.io` (Let's Encrypt via Caddy).
