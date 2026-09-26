@@ -8,24 +8,27 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | `app/` | Wizard app: menu-bar wizard, file check, call watch (mock results) | david-frontend | `server/` for real scores |
-| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | App ↔ server link (install id, history, file checks to Vultr) | israel/app-server-link | weights on the Vultr volume (server serves mock until then) |
+| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | Demo answers 70% likely synthetic / 30% likely real; calls checked by the server too | israel/mock-verdict-mix | weights on the Vultr volume (server serves mock until then) |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
 - Model: v4p6 (six analyzers; nsa/app profiles), see DECISIONS.md and ml/README.md. Calibration on new voices is a known gap.
 - Live server: see the latest `infra` run summary or `terraform output base_url` (the URL changes when the server is replaced). Deploys to it are automatic on merge to `main`.
-- Server: `/health`, `/analyze` and (0.4) `/history` run on Vultr with bearer auth. It loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; no weights are on the volume yet, so every answer is the canned example with `mock: true`.
-- App: `app/` runs on macOS. Menu-bar wizard; drop or pick a file to check it; detects calls (Zoom, FaceTime, Teams, Discord, Slack, browsers holding the mic) and highlights the call window purple when flagged. With a server configured (`app/config.local.json`), file checks go to it with an anonymous install id; otherwise, and for calls, scores are local mocks. No call audio is captured yet. Results are logged to `~/Library/Application Support/dispel-wizard/results.jsonl`.
+- Server: `/health`, `/analyze` and (0.4) `/history` run on Vultr with bearer auth. It loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; no weights are on the volume yet, so every answer is demo data (`mock: true`) built from the canned example: about 70% likely synthetic, 30% likely real (0.5).
+- App: `app/` runs on macOS. Menu-bar wizard; drop or pick a file to check it; detects calls (Zoom, FaceTime, Teams, Discord, Slack, browsers holding the mic) and highlights the call window purple when flagged. With a server configured (`app/config.local.json`), file and call checks go to it with an anonymous install id; otherwise scores are local mocks (same 70/30 mix). No call audio is captured yet, so call checks send no file. Results are logged to `~/Library/Application Support/dispel-wizard/results.jsonl`.
 - NSA submission: TSV writer + validator in `hearsay/cli.py`; metric known (minDCF, see CHALLENGE.md). Test audio delivery still unknown.
 
 ## Requests (changes needed outside your own directory)
 - David → Akash: approve INTERFACES.md 0.2 (IPC section rewritten to match the app) and the call-watch decision in DECISIONS.md.
 - Israel → David: review the `app/` part of israel/app-server-link (`src/main/analyzer.js`, new `src/main/config.js`, two lines in `main.js`).
 - Israel → Akash, David: approve INTERFACES.md 0.4 and the install-id decision in DECISIONS.md.
+- Israel → Akash, David: approve INTERFACES.md 0.5 (file-less call checks, 70/30 demo answers); David: review `app/src/main/analyzer.js` and one comment in `main.js` · israel/mock-verdict-mix
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 17:00 · Israel (Claude) · mock answers are now ~70% likely synthetic / 30% likely real (server and app mock); app sends call checks to the server with no file, falls back to the local mock; INTERFACES 0.5 · israel/mock-verdict-mix
+- Sat 12:15 · David · app: Learn mode (the wizard teaches what deepfakes are, common scams, and how to protect family), right-click menu on the wizard · david-frontend
 - Sat 11:40 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept Israel's 0.4 server, re-applied FUSION_PROFILE; hearsay/ml from the branch) · PR #8
 - Sat 10:10 · Israel · server replaced via infra `replace_server` (#6 bootstrap + models volume; new URL `https://66-42-83-221.sslip.io`); `/health` no longer counts `lost+found` on the empty volume as weights (it failed the deploy health check) · israel/weights-found-fix (#9)
 - Sat 09:40 · Israel · server: `X-Dispel-Client` install id, check history in SQLite + `GET /history`, `mock` flag in responses, more containers accepted; app: file checks POST to the configured server; INTERFACES 0.4; STATUS.md de-duplicated after the #7 merge · israel/app-server-link

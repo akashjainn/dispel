@@ -18,6 +18,16 @@
         <span id="score-label" class="score-label"></span>
       </div>
       <p id="bubble-note" class="bubble-note"></p>
+      <button id="learn-more" class="link-btn" hidden>How do these scams work?</button>
+      <div id="lesson" class="lesson" hidden>
+        <p id="lesson-text" class="lesson-text"></p>
+        <div id="lesson-topics" class="lesson-topics"></div>
+        <div id="lesson-nav" class="lesson-nav">
+          <button id="lesson-back" class="btn">Back</button>
+          <span id="lesson-page" class="lesson-page"></span>
+          <button id="lesson-next" class="btn btn-yes">Next</button>
+        </div>
+      </div>
       <div id="bubble-ask" class="bubble-ask" hidden>
         <p id="ask-text" class="ask-text"></p>
         <div class="ask-buttons">
@@ -36,6 +46,7 @@
     ></canvas>
 
     <script src="sprites.js"></script>
+    <script src="lessons.js"></script>
     <script src="wizard.js"></script>
   </body>
 </html>

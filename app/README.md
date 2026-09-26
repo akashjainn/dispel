@@ -17,6 +17,10 @@ npm start -- --simulate-call   # also runs the call flow with a fake call window
   call. "Yes, hang up" quits Zoom, FaceTime, Teams, Discord or Slack (like ⌘Q);
   for a browser call it asks you to close the tab instead. Turn call watching
   off with "Watch calls" in the tray menu (right-click the icon).
+- **Learn:** the wizard explains what a deepfake is, common deepfake scams, and
+  how to protect yourself and your family (safe word, call back, slow down,
+  where to report). Open it from the tray menu, by right-clicking the wizard, or
+  with "How do these scams work?" after a file check. Text: `src/renderer/lessons.js`.
 - **Log:** every result is appended to
   `~/Library/Application Support/dispel-wizard/results.jsonl` (score, verdict,
   file name or call app; never audio). Tray menu → "Open results log".

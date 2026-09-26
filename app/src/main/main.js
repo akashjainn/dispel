@@ -124,7 +124,7 @@ function setWizardLevel(level) {
 
 function setMode(next, payload = {}) {
   mode = next;
-  bubble = ['analyzing', 'result', 'call-alert'].includes(next);
+  bubble = ['analyzing', 'result', 'call-alert', 'learn'].includes(next);
   if (next === 'hidden') {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
@@ -212,6 +212,18 @@ function validAudioPath(p) {
   }
 }
 
+// ---------- learn mode ----------
+
+const LESSON_TOPICS = new Set(['deepfake', 'scams', 'protect']); // keys of LESSONS in lessons.js
+
+// The wizard explains deepfakes, scams and how to stay safe (renderer pages
+// through the lesson). Doesn't interrupt a file check or a call warning.
+function learn(topic) {
+  if (mode === 'analyzing' || callAlertShowing()) return;
+  wizardVisible = true;
+  setMode('learn', { topic: LESSON_TOPICS.has(topic) ? topic : null });
+}
+
 // ---------- call mode ----------
 
 function callAlertShowing() {
@@ -253,8 +265,8 @@ async function onCallStarted({ app: callApp, bounds, canEnd }) {
     placeWizard(); // move to the call's corner; the gray state shows once it's dismissed
   } else setMode('call-watch', { app: callApp, appear: !wizard.isVisible() });
 
-  // MOCK: no audio is captured yet. We wait out the mock latency and use the
-  // mock score, which always lands above the alert threshold.
+  // MOCK: no audio is captured yet. The server (or the local mock) answers with
+  // demo data: about 70% of calls land above the alert threshold.
   const result = await analyzer.analyze('call');
   if (callSession !== session) return; // call ended or restarted meanwhile
   logResult({ source: 'call', name: callApp, result });
@@ -349,6 +361,7 @@ function trayMenu() {
   return Menu.buildFromTemplate([
     { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
+    { label: 'Learn about deepfakes', click: () => learn() },
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -393,8 +406,20 @@ function registerIpc() {
 
   ipcMain.on('wizard:end-call', () => endCall());
 
+  ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
+
+  // Right-click on the wizard.
+  ipcMain.on('wizard:context-menu', () => {
+    Menu.buildFromTemplate([
+      { label: 'Check an audio file…', click: pickFile, enabled: !busy },
+      { label: 'Learn about deepfakes', click: () => learn() },
+      { type: 'separator' },
+      { label: 'Send wizard away', click: dismiss, enabled: !callSession },
+    ]).popup({ window: wizard });
+  });
+
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result') {
+    if (mode === 'result' || mode === 'learn') {
       if (callSession) showCallMode();
       else setMode('idle');
     } else if (mode === 'call-alert') {
