@@ -14,6 +14,10 @@ on:
         type: choice
         options: [plan, apply]
         default: plan
+      replace_server:
+        description: "Deliberately destroy and recreate the server. Its local disk is lost (the models volume is kept). Without this, apply refuses any plan that destroys the server."
+        type: boolean
+        default: false
 
 # One Terraform run at a time; never cancel one mid-apply.
 concurrency:
@@ -64,9 +68,30 @@ jobs:
           terraform_wrapper: false
       - run: terraform init -input=false
       - name: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
+          REPLACE: ${{ inputs.replace_server }}
         run: |
-          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          args=""
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "$REPLACE" = "true" ]; then args="-replace=vultr_instance.api"; fi
+          terraform plan -input=false -no-color $args -out=tfplan | tee plan.txt
           { echo '### terraform plan'; echo '```'; tail -n 80 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+          # Guard: the server's local disk and the models volume must never be destroyed by accident.
+          terraform show -json tfplan > plan.json
+          destroyed=$(jq -r '.resource_changes[]? | select(.type=="vultr_instance" or .type=="vultr_block_storage") | select(.change.actions | index("delete")) | .address' plan.json | tr '\n' ' ')
+          rm -f plan.json
+          if [ -n "$destroyed" ]; then
+            echo "### ⚠️ This plan DESTROYS: $destroyed" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::This plan destroys: $destroyed"
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$ACTION" = "apply" ]; then
+              if [ "$REPLACE" != "true" ] || [ "$destroyed" != "vultr_instance.api " ]; then
+                echo "Refusing to apply: only a deliberate replace_server run may destroy vultr_instance.api, and nothing may destroy the models volume."
+                exit 1
+              fi
+            fi
+          fi
       - uses: actions/upload-artifact@v7
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         with:

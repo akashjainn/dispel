@@ -4,8 +4,11 @@ Sources:
 - **[I]** the official instructions, `HEARSAY_HackGT2026_Instructions.pdf` (NSA Google Drive folder, read Fri 9:03 PM)
 - **[B]** the challenge brief PDF, "HEARSAY: The Audio Authentication Challenge"
 - **[T]** the NSA kickoff talk and slides, Fri ~8:00–9:00 PM (notes by Akash)
+- **[D]** the HEARSAY challenge post in the HexLabs Discord (pasted by David, Sat)
 
-If [I] conflicts with [B], trust [I].
+If [I] conflicts with [B], [T] or [D], trust [I].
+
+**Correction to [T]:** the slides say the data is "~50% real, ~50% synthetic". That is wrong; it is **about 70% real, 30% synthetic** (see Test set below).
 
 ## Known
 
@@ -58,6 +61,7 @@ If [I] conflicts with [B], trust [I].
 - [ ] The one-time review of a draft TSV: when, how to submit, and what feedback comes back?
 - [ ] Docker: GPU or CPU, internet access, time limit?
 - [ ] Final deadline, and the HexLabs submission format.
+- [ ] [D] conflicts with [I]: it asks for a **CSV** with a **0–100%** score and optionally the **type of manipulation**. [I] says TSV, 0.0–1.0, no manipulation type. Until NSA confirms, follow [I]; a manipulation type (if we ever add one) stays "unknown" unless we're confident.
 
 ## Our results on NSA-like data
 (Record the exact data, sample count and command for each result.)

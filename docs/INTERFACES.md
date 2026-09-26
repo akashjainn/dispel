@@ -1,4 +1,4 @@
-# INTERFACES: version 0.3 (draft)
+# INTERFACES: version 0.4 (draft)
 
 Change this only through a PR that bumps the version and names the change.
 Both `app/` and `server/` code against this file. A mock response is in
@@ -14,17 +14,23 @@ Deployed (Vultr): `https://<host>` from `terraform output base_url` (see
 `GET /health` is public. With no `API_KEY` set on the server (local dev), auth is off.
 A wrong or missing key gives 401 `{"error": "unauthorized", ...}`.
 
+**Install id.** The app sends `X-Dispel-Client: <uuid>` on every request: a random UUID
+made on first launch, with no account behind it. It is optional on `/analyze` (curl,
+tests) and required on `/history`. A value that isn't a UUID gives 400 `bad_request`.
+When present, the server records the check's metadata (never audio or file names).
+
 ### GET /
 A public HTML landing page ("Team Gemini") for people who open the server URL in a browser. Not part of the API; the app never calls it.
 
 ### GET /health
-Returns `{"ok": true, "model": "<release name, e.g. v3p>" | "mock", "device": "cuda|cpu", "version": "0.3", "mock": bool, "weights_found": bool}`, plus `load_error` (string) if weights were found but could not be loaded.
+Returns `{"ok": true, "model": "<release name, e.g. v4p6>" | "mock", "device": "cuda|cpu", "version": "0.4", "mock": bool, "weights_found": bool}`, plus `load_error` (string) if weights were found but could not be loaded.
 `mock: true` means the response is the canned example, not a real model result. The UI must show a "demo data" badge when it is true.
 
 ### POST /analyze
-Request: `multipart/form-data` with the field `file` (wav, flac, mp3, m4a, webm or
-ogg). An optional form field `prior` (float between 0 and 1, default 0.5) is
-the user's prior belief that the clip is synthetic.
+Request: `multipart/form-data` with the field `file` (wav, flac, mp3, m4a, aac,
+webm, ogg, oga, opus, or the audio track of mp4/mov). Optional form fields:
+- `prior` (float between 0 and 1, default 0.5): the user's prior belief that the clip is synthetic.
+- `source` (`file` | `call`, default `file`): what the clip is, for history.
 
 The server:
 - decodes the file with ffmpeg and converts it to 16 kHz mono
@@ -35,11 +41,11 @@ Response 200:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `version` | string | `"0.3"` |
+| `version` | string | `"0.4"` |
 | `clip_id` | string | uuid |
 | `duration_s` | float | clip length in seconds |
 | `input` | object | `{ "sample_rate": int, "channels": int, "codec": str }` |
-| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v3p6/app", "release": "2026-09-26"}`. `/health` `model` is the release alone (`v3p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
+| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v4p6/app", "release": "2026-09-26"}`. `/health` `model` is the release alone (`v4p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
 | `overall.llr` | float | natural-log likelihood ratio (synthetic vs real), capped at ±ln(100) |
 | `overall.prior` | float | the prior that was used |
 | `overall.probability` | float | sigmoid(llr + logit(prior)), between 0 and 1 |
@@ -52,6 +58,7 @@ Response 200:
 | `limitations[]` | string[] | plain-language caveats to show in the report |
 | `timing_ms` | int | processing time |
 | `pipeline_version` | string | hearsay package version |
+| `mock` | bool | `true` when this is the canned example rather than a model result; the UI must say so |
 
 The ML owner sets the verdict thresholds in `server/`, and they are recorded in
 DECISIONS.md. **Placeholder until they're set:** `inconclusive` whenever
@@ -60,18 +67,42 @@ DECISIONS.md. **Placeholder until they're set:** `inconclusive` whenever
 Errors: `{"error": "<code>", "message": str}` with status 400 (bad input), 401,
 413 (too long or too large), or 500. Error codes: `decode_failed`, `too_short`
 (< 1 s or empty), `too_long` (> 120 s or over the upload limit, 25 MB),
-`bad_request` (e.g. `prior` outside 0..1), `unauthorized`, `internal`.
+`bad_request` (e.g. `prior` outside 0..1, bad `source` or install id), `unauthorized`, `internal`.
 
-## Electron IPC (preload bridge `window.wizard`)
-- `wizard.captureLast(seconds: number): Promise<ArrayBuffer>` records system
-  audio. It only runs after the user clicks.
-- `wizard.analyze(audio: ArrayBuffer | string /* file path */, prior?: number): Promise<AnalyzeResponse>`
-- `wizard.health(): Promise<Health>`
+### GET /history
+Needs the bearer key and `X-Dispel-Client`. Query `limit` (1..100, default 20).
+Returns this install's checks, newest first:
+`{"client_id": str, "items": [{"ts": ISO-8601 UTC, "clip_id", "source", "probability", "verdict", "model", "mock": bool, "duration_s"}]}`.
+
+## Electron IPC (preload bridge `window.wizard`, app in `app/`)
+Changed in 0.2: the bridge now matches what the app does. The main process
+makes every decision; the renderer only draws the state it's sent.
+
+Renderer → main (each argument is validated in main):
+- `wizard.pickFile()` opens a file dialog, then analyzes the chosen file.
+- `wizard.endCall()` answers "Yes, hang up" on a flagged call. Main quits the
+  call app politely (like Cmd+Q) through the callwatch helper. Browsers are never
+  quit; for them the wizard asks the user to close the call tab.
+- Dropped files never cross the bridge: the preload catches the drop and sends
+  the file's path to main, which checks the extension, that it's a file, and its size.
+- `wizard.dismissBubble()`, `wizard.vanished()`, `wizard.drag(phase, x, y)` are UI only.
+
+Main → renderer:
+- `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
+  `hidden | vanish | idle | analyzing | result | call-watch | call-alert`.
+  `result` and `call-alert` carry an AnalyzeResponse as `result`.
+
+File checks go to the server set in `app/config.local.json` or `DISPEL_SERVER_URL`
+(local mock if neither is set). Not built yet: `captureLast(seconds)`
+(system-audio capture). Until then no call audio is captured, and call-mode
+results are local mocks (see `app/src/main/analyzer.js`).
 
 The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
-- 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is `<release>/<profile>` (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.
+- 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques.
+- 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.
+- 0.3: added `analyzers[]` and `pipeline_version`; `model.name` is the release name (no longer fixed to v2e); `/health` returns `"model": "mock"` and may include `load_error`; `flac` accepted.
 - 0.2 (no bump): added the `/` landing page.
 - 0.2: configurable base URL, bearer auth, `mock`/`weights_found` in /health, `bad_request`/`unauthorized` errors.

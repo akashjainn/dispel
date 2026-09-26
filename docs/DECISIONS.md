@@ -14,6 +14,14 @@
 - **Fri 20:00. ElevenLabs:** we generate voices only from consenting teammates
   and stock library voices. We never clone public figures, including for the
   demo. All generated data is disclosed.
+- **Sat 02:25. Call watch (proposed by David, needs Akash's OK):** the app
+  starts watching automatically when a call app (Zoom, FaceTime, Teams, Discord,
+  Slack, or a browser) is using the microphone. It finds out by asking macOS
+  which process is running audio input, and never opens the mic itself. The
+  wizard shows a gray "watching" state so the user can see it. It can be turned
+  off from the tray ("Watch calls"). Right now no audio is captured and call
+  results are mocks. Capturing call audio will change the "only when the user
+  asks" rule, so it needs its own decision (in-memory buffer, never saved).
 - **Sat. Hosting (supersedes the "inference runs locally" line above):** the API
   and inference run on a Vultr instance provisioned by Terraform (`infra/vultr/`).
   Audio is uploaded to it only on a user action. The server keeps no audio.
@@ -31,6 +39,17 @@
   The server, the NSA TSV (`python -m hearsay predict`) and the Docker image all use the same `hearsay/` code.
 - **Sat 02:50. Verdict band:** placeholder 0.25 / 0.75 on the posterior stays until calibration on
   new voices is fixed (teammate check: 18 of 20 consented ElevenLabs clones scored "likely real", although the ranking was right, AUC 0.98).
+- **Sat. Repo-driven server:** the Vultr server's first-boot script is a fixed bootstrap; deploy logic and the container stack
+  live in the repo (`docker/remote-deploy.sh`, `docker/compose.prod.yml`) and ship on merge. Model weights sit on a separate
+  NVMe block-storage volume (`/opt/dispel/models`, 10 GB) that survives server replacement. `ignore_changes = [user_data]`, a
+  `replace_server` gate in the infra workflow and `prevent_destroy` on the volume stop accidental wipes. (israel/repo-driven-server)
+- **Sat. App ↔ server link and anonymous install id (proposed by Israel, needs David's and Akash's OK):** the app sends
+  file checks to the configured server (Vultr) instead of its local mock; call checks stay local mocks until audio
+  capture exists. There is no registration: on first launch the app makes a random UUID (`<userData>/client-id`) and sends
+  it as `X-Dispel-Client`. The server records one row per check in SQLite (`/opt/dispel/data`, survives redeploys but not a
+  server replacement) with result metadata only: never audio, file names or transcripts. `GET /history` returns an
+  install's own rows. The id groups checks; it is not authentication. The app's bearer key ships inside the app, so treat
+  it as a speed bump, not a secret. (israel/app-server-link)
 - **Sat 04:10. Release v3p6 (supersedes v3p):** six analyzers fused additively: v3, LFCC-LCNN, prosody, spectral,
   voice (formant movement + pitch-loudness coupling), rhythm. Out-of-fold minDCF on DiffSSD val: clean 0.000,
   ffmpeg stretch 0.008, librosa stretch 0.085 (v3 alone 0.010 / 0.032 / 0.392). Spectral flatness and formant

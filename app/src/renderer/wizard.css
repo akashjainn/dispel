@@ -1,0 +1,213 @@
+/* Sprites are 80x128 frames drawn at 2x. The window is transparent; only the
+   wizard, cauldron, wand and speech bubble are visible. */
+
+:root {
+  --ink: #2a1740;
+  --paper: #fffaf0;
+  --purple: #6b3fa0;
+  --synthetic: #c0392b;
+  --real: #2e7d32;
+  --unsure: #2f6f9f;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  color: var(--ink);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- stage (bottom-right of the window) ----------
+   One 80x120 canvas (see sprites.js) drawn at exactly 2x, so every sprite
+   pixel is a crisp 2x2 block. If you change the size, change SIZE in main.js
+   and .bubble's right offset to match. */
+
+.stage {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 160px;
+  height: 240px;
+  image-rendering: pixelated;
+  cursor: grab;
+  transition: filter 0.4s, opacity 0.4s;
+}
+
+.drop-hover .stage {
+  filter: drop-shadow(0 0 6px #b78cff) drop-shadow(0 0 2px #fff);
+}
+
+/* ---------- call mode: grayed out in the call window's corner until flagged ---------- */
+
+body.watching .stage {
+  filter: grayscale(1) brightness(1.1);
+  opacity: 0.4;
+}
+body.call .stage {
+  cursor: default;
+}
+
+/* ---------- speech bubble (top-left, tail pointing at the wizard) ---------- */
+
+.bubble {
+  position: absolute;
+  z-index: 10; /* in front of the wand's sparkles */
+  top: 24px;
+  right: 138px; /* tail reaches the wizard's side (he starts ~26px into the stage) */
+  width: 252px;
+  box-sizing: border-box;
+  padding: 12px 14px 10px;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 rgba(42, 23, 64, 0.35);
+  animation: pop 0.18s ease-out;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  right: -16px;
+  bottom: 22px;
+  border: 8px solid transparent;
+  border-left: 12px solid var(--ink);
+}
+
+.bubble.alert {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.35), 4px 4px 0 rgba(42, 23, 64, 0.35);
+}
+.bubble.alert::after {
+  border-left-color: var(--purple);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.bubble-close {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  border: 0;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+  opacity: 0.55;
+  cursor: pointer;
+}
+.bubble-close:hover {
+  opacity: 1;
+}
+
+.bubble-title {
+  margin: 0 12px 6px 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.bubble-score {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin: 4px 0 2px;
+}
+
+.digits {
+  display: inline-flex;
+  gap: 3px;
+}
+.digit {
+  display: inline-block;
+  width: 21px;
+  height: 33px;
+  background-image: url('../../Assets/number-sprites.png');
+  background-size: 231px 99px;
+  image-rendering: pixelated;
+}
+
+.percent {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 8px 0 2px;
+  line-height: 1;
+}
+.score-label {
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding-bottom: 3px;
+}
+.likely_synthetic .percent {
+  color: var(--synthetic);
+}
+.likely_real .percent {
+  color: var(--real);
+}
+.inconclusive .percent {
+  color: var(--unsure);
+}
+
+.bubble-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: 0.7;
+}
+.bubble-note:empty {
+  display: none;
+}
+
+.bubble-ask {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 2px dashed rgba(42, 23, 64, 0.2);
+}
+.ask-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ask-buttons {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 rgba(42, 23, 64, 0.35);
+  cursor: pointer;
+}
+.btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(42, 23, 64, 0.35);
+}
+.btn-yes {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}

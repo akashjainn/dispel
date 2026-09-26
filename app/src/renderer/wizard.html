@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'"
+    />
+    <title>Dispel wizard</title>
+    <link rel="stylesheet" href="wizard.css" />
+  </head>
+  <body>
+    <div id="bubble" class="bubble" hidden>
+      <button id="bubble-close" class="bubble-close" aria-label="Close">×</button>
+      <p id="bubble-title" class="bubble-title"></p>
+      <div id="bubble-score" class="bubble-score" hidden>
+        <span id="digits" class="digits"></span><span class="percent">%</span>
+        <span id="score-label" class="score-label"></span>
+      </div>
+      <p id="bubble-note" class="bubble-note"></p>
+      <div id="bubble-ask" class="bubble-ask" hidden>
+        <p id="ask-text" class="ask-text"></p>
+        <div class="ask-buttons">
+          <button id="ask-yes" class="btn btn-yes">Yes, hang up</button>
+          <button id="ask-no" class="btn">No</button>
+        </div>
+      </div>
+    </div>
+
+    <canvas
+      id="stage"
+      class="stage"
+      width="80"
+      height="120"
+      title="Drop an audio file on me, or click to choose one"
+    ></canvas>
+
+    <script src="sprites.js"></script>
+    <script src="wizard.js"></script>
+  </body>
+</html>

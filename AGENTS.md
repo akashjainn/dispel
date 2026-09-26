@@ -87,19 +87,21 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
 
 ## Model facts (don't contradict these in code, UI copy, or the pitch)
 
-- The release (e.g. **v3p6**) fuses six analyzers additively (`hearsay/fusion.py`): the v3 neural detector
-  (XLS-R 300M fine-tuned on DiffSSD with noise + time-stretch augmentation), an LFCC-LCNN detector, and four
-  interpretable feature analyzers (prosody, spectral, voice, rhythm). Two fusion profiles: `nsa` (all six, used for
-  the TSV) and `app` (v3 + prosody, used by the server; it held up better on unfamiliar voices). Input is 16 kHz mono;
-  the neural models score up to 3 non-overlapping 4 s windows. Numbers and ablations: `ml/README.md`.
-- **Weights are not in git** (about 1.2 GB for v3, 1 MB for LFCC; non-commercial license).
+- The release (**v4p6**) fuses six analyzers additively (`hearsay/fusion.py`): the v4 neural detector
+  (XLS-R 300M fine-tuned on DiffSSD, ElevenLabs stock voices and Kokoro, with noise + time-stretch augmentation), an
+  LFCC-LCNN detector, and four interpretable feature analyzers (prosody, spectral, voice, rhythm). Two fusion
+  profiles: `nsa` (all six, used for the TSV) and `app` (neural + prosody, used by the server; it held up better on
+  unfamiliar voices). Input is 16 kHz mono; the neural models score up to 3 non-overlapping 4 s windows.
+  Numbers and ablations: `ml/README.md`.
+- **Weights are not in git** (about 1.2 GB for the neural detector, 1 MB for LFCC; non-commercial license).
   Code finds them through the `MODEL_DIR` env var; ask Akash for a copy.
   Release hashes live in `docs/DECISIONS.md`.
 - License: MLAAD is CC BY-NC, so the model and demo are **non-commercial**.
 - Known weaknesses (the report and pitch must say these plainly):
-  - Heavy phase-vocoder time-stretching still hurts (minDCF 0.085 fused, 0.392 for v3 alone).
-  - Calibration on new voices is off: in a teammate check, 17 of 20 consented ElevenLabs clones
-    came out "likely real" (the ranking was right, AUC 0.98; the absolute scores are not). Numbers and runs are in `ml/README.md`.
+  - Heavy time-stretching still hurts (librosa phase vocoder: minDCF 0.088 fused vs 0.000 clean). A stretch
+    method never seen in training (rubberband) pushes some real clips toward "synthetic"; under investigation.
+  - Cloned voices of real people on ordinary mics: v4 flags 65% of teammates' consented ElevenLabs clones on clean
+    audio and 35% when stretched, and most still get a "likely real" verdict. Numbers and runs are in `ml/README.md`.
 
 ## UI and copy rules
 - Never say "fake" or "real" as a certainty. Use "likely synthetic",
@@ -175,11 +177,11 @@ Other rules:
 ## Commands
 
 Fill these in when each part is scaffolded. Don't guess them.
-- App dev: `TBD`
+- App dev (David): `cd app && npm install && npm start` (`npm start -- --simulate-call` runs the call flow without a real call). To use the Vultr server: `cp app/config.example.json app/config.local.json` and fill it in
 - Server dev: `cd server && pip install -r requirements.txt && uvicorn app.main:app --port 8765`
 - Server tests: `cd server && python -m pytest -q`
 - Server in Docker: `docker compose -f docker/compose.yml up --build`
-- Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Server replacement/infra changes: Actions -> infra -> Run workflow. Details in `infra/vultr/README.md`.
+- Deploy to Vultr: merging to `main` changes under `server/` or `docker/` deploys automatically (`.github/workflows/deploy.yml`). Deploy logic lives in `docker/remote-deploy.sh` and `docker/compose.prod.yml` (repo-driven). Infra changes: Actions -> infra -> Run workflow; replacing the server needs the `replace_server` box. Weights live on a persistent volume and survive a replacement. Details in `infra/vultr/README.md`.
 - Smoke tests: `TBD`
 - NSA TSV: `MODEL_DIR=<release> python -m hearsay predict <test_dir> -o <Team>_predictions.tsv --template <NSA template>.tsv` (writes and validates; header `filename<TAB>cm-score`). Check only: `python -m hearsay validate <tsv> --template <template>`
 - Docker (NSA): same image as the server; see the header of `docker/Dockerfile.server` for the `docker run` line.
