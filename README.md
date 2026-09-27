@@ -22,8 +22,8 @@ serves the app's API (`server/`) and ships in the Docker image (`docker/`).
 - **We attacked our own detector with ElevenLabs:** every TTS model, instant clones of consenting teammates, the voice
   changer, voice design, codecs and the Voice Isolator. On held-out teammates' clones, minDCF fell from 0.48 (v4) to
   0.18 (v5c); on 4 generator systems never seen in training it is 0.000. [Held-out results](docs/ARCHITECTURE.md#held-out-results-for-the-shipped-network)
-- **We tested NSA's hints and kept only what held up.** Breathing and spectrogram "ribs" flip direction between mic and
-  studio audio, so we don't score on them. Clones speaking about 29% faster held up on same-sentence pairs, so the app
+- **We tested NSA's hints and kept only what held up.** Clones breathe as often as the real speakers, and spectrogram
+  "ribs" flip direction between mic and studio audio, so we don't score on either. Clones speaking about 29% faster held up on same-sentence pairs, so the app
   shows it as evidence. [NSA's hints](#what-we-learned-the-short-version-of-docsdecisionsmd)
 - **One pipeline, explained end to end.** The same `hearsay/` code writes the NSA TSV, runs the live server and ships
   in Docker. Every app report shows per-window scores, what each analyzer found, and its limitations, including our
