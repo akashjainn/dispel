@@ -171,7 +171,8 @@ Other rules:
 - Opening and merging PRs is a human decision.
 
 ### Never commit
-- audio files (`*.wav`, `*.mp3`, `*.flac`, `*.m4a`, `*.webm`, `*.ogg`)
+- audio files (`*.wav`, `*.mp3`, `*.flac`, `*.m4a`, `*.webm`, `*.ogg`). One exception: the wizard's
+  generated UI voice lines in `app/Assets/voice/` (TTS, no recordings of anyone; see its README)
 - model weights (`*.pt`, `*.pth`, `*.onnx`, `*.safetensors`, `*.bin`)
 - datasets, `.env` files, or any key or token (ElevenLabs, Hugging Face,
   GitHub). Use `.env.example` with placeholder values instead.
