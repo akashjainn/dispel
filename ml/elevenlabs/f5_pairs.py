@@ -84,7 +84,6 @@ def main():
                         "fake_codec": args.fake_codec}
             stale = meta.exists() and json.loads(meta.read_text()) != settings
             if not dst.exists() or stale:
-                meta.write_text(json.dumps(settings))
                 ref = Path(tmp) / f"ref_{nn}.wav"
                 trimmed_ref(ref_files, ref)
                 ref_text = " ".join(sentences[r - 1] for r in refs)
@@ -95,6 +94,7 @@ def main():
                     aac_roundtrip(raw, dst, "128k")
                 else:
                     to_wav(raw, dst)
+                meta.write_text(json.dumps(settings))  # only once the new clip is written
             source = f"f5tts:{MODEL}" + (f"@speed{args.speed}" if args.speed != 1.0 else "") + (f"@ref+{args.ref_offset}" if args.ref_offset != 1 else "") + (f"+{args.fake_codec}" if args.fake_codec else "")
             rows.append((dst.name, "spoof", nn, source, f"{duration_s(dst):.2f}", text))
             print(f"[{nn}] fake  {dst.name}  (voice from real sentences {refs})")

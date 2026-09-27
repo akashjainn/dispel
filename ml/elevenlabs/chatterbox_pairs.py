@@ -87,7 +87,6 @@ def main():
                         "cfg_weight": args.cfg_weight, "ref_offset": args.ref_offset, "fake_codec": args.fake_codec}
             stale = meta.exists() and json.loads(meta.read_text()) != settings
             if not dst.exists() or stale:
-                meta.write_text(json.dumps(settings))
                 ref = Path(tmp) / f"ref_{nn}.wav"
                 trimmed_ref(ref_files, ref)
                 torch.manual_seed(i)
@@ -98,6 +97,7 @@ def main():
                     aac_roundtrip(raw, dst, "128k")
                 else:
                     to_wav(raw, dst)
+                meta.write_text(json.dumps(settings))  # only once the new clip is written
             source = (f"chatterbox:{MODEL}@exag{args.exaggeration}@cfg{args.cfg_weight}" if (args.exaggeration, args.cfg_weight) != (0.5, 0.5) else f"chatterbox:{MODEL}") + (f"@ref+{args.ref_offset}" if args.ref_offset != 1 else "") + (f"+{args.fake_codec}" if args.fake_codec else "")
             rows.append((dst.name, "spoof", nn, source, f"{duration_s(dst):.2f}", text))
             print(f"[{nn}] fake  {dst.name}  (voice from real sentences {refs})")
