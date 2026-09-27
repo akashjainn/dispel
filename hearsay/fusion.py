@@ -49,7 +49,7 @@ class Fusion:
         if v3 is None or not np.isfinite(v3):
             return None
         vals = self.term_values(feats)
-        contrib = {t["name"]: float(w * vals[t["name"]]) for t, w in zip(self.terms, self.m["weights"])}
+        contrib = {t["name"]: float(w * vals[t["name"]]) for t, w in zip(self.terms, self.m["weights"], strict=True)}
         bias = float(self.m["bias"])  # fusion intercept: not evidence from any analyzer, reported on its own
         r = bias + float(sum(contrib.values()))
         return {"llr_raw": r, "llr": float(np.clip(r, -CAP, CAP)), "bias": bias,

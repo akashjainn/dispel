@@ -56,14 +56,14 @@ Response 200:
 | `clip_id` | string | uuid |
 | `duration_s` | float | clip length in seconds |
 | `input` | object | `{ "sample_rate": int, "channels": int, "codec": str }` |
-| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v4p6/app", "release": "2026-09-26"}`. With the Hugging Face stand-in: `{"name": "hf:<repo id>", "release": "<first 7 chars of the pinned commit>"}`. `/health` `model` is the release alone (`v4p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
+| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v4p6/app", "release": "2026-09-26"}`. With the Hugging Face stand-in: `{"name": "hf:<repo id>", "release": "<first 7 chars of the pinned commit>"}`. `/health` `model` is the release alone (`v4p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV, unless the release pins one (`profile_override` in `hearsay.json`; v5c pins `nn`, so both read `v5c/nn`) |
 | `overall.llr` | float | natural-log likelihood ratio (synthetic vs real), capped at ±ln(100) |
 | `overall.prior` | float | the prior that was used |
 | `overall.probability` | float | sigmoid(llr + logit(prior)), between 0 and 1 |
 | `overall.verdict` | enum | `likely_synthetic` \| `inconclusive` \| `likely_real` |
 | `overall.fusion_bias` | float | optional; the fusion intercept, which belongs to no analyzer. `fusion_bias` + the `llr_contribution`s = the LLR before the cap |
 | `segments[]` | array | each item is `{ "start_s", "end_s", "llr", "probability" }`: the neural detector alone on each 4 s window (up to 3) |
-| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; with `overall.fusion_bias` they sum to the fused LLR before the cap). The Hugging Face stand-in reports one entry, `hf_detector`, with `fusion_bias` 0 |
+| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; with `overall.fusion_bias` they sum to the fused LLR before the cap). The Hugging Face stand-in reports one entry, `hf_detector`, with `fusion_bias` 0. Additive since release v5c: `"role": "vote" | "evidence"`; `evidence` analyzers ran and their `finding` is shown, but they carry `llr_contribution` 0 (profile `nn`: only `dl_detector` votes) |
 | `manipulation` | object | `{ "type": str, "confidence": float }`. `type` is `"unknown"` until we have the NSA label schema. |
 | `channel` | object | `{ "bandwidth_hz": int, "phone_like": bool, "note": str }` |
 | `transcript` | string or null | optional |

@@ -61,6 +61,14 @@
 - **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
   v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
   (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
+- **Sat 16:10. Interim submission:** `HearsayScoreKey4Gemini.tsv` from release v4p6 (profile `nsa`), sha256
+  05adaf1e…. NSA rating: **minDCF 0.258, EER 10.2%** (instructions' metric: 0 = real, 1 = synthetic, P(synthetic) 0.3,
+  false alarm on a real clip costs 4x). Leaderboard of interims: 0.058, 0.075, 0.258 (us), 0.267. NSA keeps the better
+  of interim and final.
+- **Sat 16:30. Diagnosis (no test labels used):** noise and short clips do not explain it (DiffSSD test clips cropped to
+  NSA durations, peak-normalized, noise matched to NSA's noise floor: v4 alone 0.049). On the test set the network calls
+  664 clips synthetic and the fusion 332; the fusion demotes 134 clips the network scores above +10. Same pattern on
+  consenting teammates' ElevenLabs clones: network +2.8, spectral -3.2, prosody -2.0.
 - **Sat 17:30. Notify a contact (David, app):** on a flagged call the wizard offers "Notify trusted
   contact" (personal) or "Notify my manager" (work), chosen in the app's Settings. It sends a text
   from the user's own Mac through Messages (iMessage, else SMS relay), only when the user presses
@@ -78,11 +86,23 @@
   judge's laptop (Teams/FaceTime links; Discord by hand), play a prepared clip into BlackHole as the call's mic, and
   optionally switch OBS to a matching deepfake video. Demo prop only; not part of the product or the server. Clips are
   gitignored. Voices must be consented clones or published dataset clips, not new deepfakes of real public figures.
+- **Sat 18:40. Final is network-first (supersedes the two fusion profiles for scoring):** new profile `nn` in
+  `hearsay/orchestrator.py`. The neural detector alone sets the score. Prosody, spectral, voice and rhythm still run
+  and are shown as evidence (`role: "evidence"`, llr_contribution 0). Additive change to the response; old profiles kept.
 - **Sat 18:45. Call checks: one-time opt-in (David, app; supersedes "on request only" above):** on the first detected
   call the wizard asks once, "Check my calls automatically?". "Yes, always" saves `autoCheckCalls: true` and from then
   on every call is checked as it starts (12 s, "Listening…" bubble shown while recording, clip deleted after the
   server answers). "Only when I ask" saves false: checks only from the tray or ⌘⇧L. Closing the bubble leaves it
   unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.
+- **Sat 19:45. NSA hints tested, not used for scoring:** breaths, pauses, harmonic "ribs", start-vs-middle drift
+  (20 features, 2,160 clips, `ml/analysis/features/hint_feats.py`). None points the same way across mic recordings,
+  studio audio, voice changer and DiffSSD. Speaking rate (clones +29% syllables/s on teammates) is app evidence and a
+  reference check only.
+- **Sat 20:00. Isolator-cleaned real speech counts as real** (team decision). Every model flags it (97-100%), so v5c
+  trains on it as real.
+- **Sat 20:00. v5c training data (diversity, NSA's advice):** see README "What we learned" 5; every source keeps a held-out
+  slice, 4 new MLAAD systems are held out entirely, teammates are split by speaker. DiffSSD's test split (80%) is used for
+  training (NSA: fair game); nothing is matched against NSA's test files.
 - **Sat 20:20. Hugging Face stand-in model (proposed by Israel, needs Akash's OK):** while `MODEL_DIR` has no `hearsay.json`,
   the server answers with a third-party open detector instead of demo data: `mo-thecreator/Deepfake-audio-detection`
   (wav2vec2-base, Apache-2.0) pinned to commit `e4d9874b493362149cec96ced85f00b00b1a04c0` (`HF_MODEL`/`HF_REVISION` in
@@ -94,6 +114,18 @@
   clips: `MelodyMachine/Deepfake-audio-detection-V2` (called all 6 TTS clips real at p ~ 1e-5, also through the stock HF
   pipeline) and `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (ranked well but 4 of 8 reals >= 0.75, and
   3-4x slower on CPU). Not yet checked on ElevenLabs clones or phone audio. (israel/hf-model)
+- **Sat 21:30. NSA's real clips look like VCTK:** v4, AntiDeepfake-1B and MMS-300M all place the test set's low cluster
+  on VCTK reals, not LJ/LibriSpeech. Model selection therefore uses VCTK reals as the main real reference.
+- **Sat 22:30. Final submission: v5c, first epoch (`ep0.pt`), profile `nn` (supersedes v4p6):** chosen on held-out
+  data only (table in README, "How we chose the final system"; diagrams in docs/ARCHITECTURE.md). TSV
+  `HearsayScoreKey4Gemini.tsv` from `HEARSAY_FP32=1 python -m hearsay predict --profile nn`: 1,671 rows, all scores
+  distinct, 32.8% above 0.5, sha256 048b2a2e6778f57e…. Held-out pooled minDCF 0.157, EER 2.86% (v4: 0.191, 4.03%).
+  Known gap: isolator-cleaned real speech (47% flagged at VCTK's 1% false-alarm threshold).
+- **Sat 22:30. Release v5c pins its profile:** `hearsay.json` carries `"profile_override": "nn"` (v3.pt sha256
+  d3defcbd…), so the server scores exactly like the TSV whatever `FUSION_PROFILE` says. The Platt map
+  (LLR = 0.696 s - 2.035, fit on DiffSSD validation) only affects the app's probability, never the ranking.
+- **Sat 22:45. Weights reach Vultr from the team PC** (rsync over SSH to `/opt/dispel/models`). Israel added the PC's
+  key and a firewall rule for its IP for this; both are removed after the event.
 - **Sat 22:45. Wizard voice lines committed as app assets (proposed by Israel, needs Akash's and David's OK):** the wizard
   and witch speak short ElevenLabs TTS lines at big moments only (file verdicts, the hang-up spell; nothing while idle or
   listening). The 26 mp3s (1.3 MB) live in `app/Assets/voice/<wizard|witch>/` and are the one exception to "never commit

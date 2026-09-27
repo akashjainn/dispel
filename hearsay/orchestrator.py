@@ -28,13 +28,21 @@ def sigmoid(t):
 
 
 class Pipeline:
-    def __init__(self, model_dir, device=None, profile="nsa"):
-        """profile "nsa": all six analyzers (best on DiffSSD-like audio; used for the TSV).
-        profile "app": neural detector + prosody only (held up better on unfamiliar voices and mics; used by the server)."""
+    def __init__(self, model_dir, device=None, profile="nsa", explain=None):
+        """profile "nsa": all six analyzers fused (v4p6 behaviour).
+        profile "app": neural detector + prosody only.
+        profile "nn":  the neural detector alone sets the score (hearsay.json "fusion_nn"); chosen after the interim
+                       showed the feature layers overruling the network on ElevenLabs clones (DECISIONS.md).
+        explain: also run the feature analyzers that the chosen fusion does not use, and report them as evidence only
+                 (llr_contribution 0, role "evidence"). Default: on for "nn", off otherwise (env HEARSAY_EXPLAIN=0/1)."""
+        import os
         d = Path(model_dir)
         self.spec = json.load(open(d / "hearsay.json"))
-        key = "fusion_app" if profile == "app" and "fusion_app" in self.spec else "fusion"
-        self.profile = "app" if key == "fusion_app" else "nsa"
+        profile = self.spec.get("profile_override", profile)  # a release can pin its scoring profile (v5c: "nn")
+        key = {"app": "fusion_app", "nn": "fusion_nn"}.get(profile, "fusion")
+        if key not in self.spec:
+            key = "fusion"
+        self.profile = {"fusion_app": "app", "fusion_nn": "nn"}.get(key, "nsa")
         fz = d / self.spec[key]["file"]
         if self.spec[key].get("sha256") and sha256(fz) != self.spec[key]["sha256"]:
             raise RuntimeError(f"sha256 mismatch for {fz}")
@@ -43,8 +51,13 @@ class Pipeline:
         used = {t["name"] for t in self.fusion.terms}
         self.lfcc = LFCCDetector(d, self.spec["lfcc"]) if "lfcc" in self.spec and "lfcc" in used else None
         self.context = {"prosody_ref": self.fusion.m.get("prosody_ref", {}), "ref": self.fusion.m.get("ref", {})}
+        env = os.getenv("HEARSAY_EXPLAIN")
+        if explain is None:  # unset or empty: the profile decides; otherwise 1/true/yes/on (any case) turn it on
+            explain = (self.profile == "nn") if env is None or not env.strip() else env.strip().lower() in ("1", "true", "yes", "on")
+        self.explain = explain
+        self.used = used
         self.feature_analyzers = [(n, m) for n, m in (("prosody", prosody), ("spectral", spectral), ("voice", voice),
-                                                       ("rhythm", rhythm)) if n in used]
+                                                       ("rhythm", rhythm)) if n in used or self.explain]
 
     def _run(self, x, info):
         """Runs every analyzer the fusion uses. Returns (results by name, fused dict or None)."""
@@ -60,7 +73,8 @@ class Pipeline:
         return res, self.fusion.fuse(feats)
 
     def tsv_score(self, path):
-        """Score for the NSA TSV: a continuous probability, higher = more likely synthetic.
+        """Score for the NSA TSV: a continuous probability, higher = more likely synthetic (NSA instructions: 0.0 = confident
+        real, 1.0 = confident synthetic).
         Only the ranking matters for minDCF, so the uncapped LLR is squashed gently (no ties at the cap).
         Returns None if the clip cannot be scored."""
         try:
@@ -92,7 +106,8 @@ class Pipeline:
                 for a, b, s in dl.get("windows", [])]
         ch = A.channel_note(x, info)
         lim = ["Only the first 12 s are scored by the neural detector; prosody uses up to 30 s.",
-               "Validated on DiffSSD generators with added noise and time-stretching; new generators may score lower.",
+               "Validated on held-out ElevenLabs, commercial TTS, open-source and DiffSSD generators; generators released later may score lower.",
+               "Real speech cleaned by noise-removal tools (such as a voice isolator) can score as synthetic.",
                "A single 'likely synthetic' result is not proof on its own. Corroborate it with the source and context."]
         if ch["phone_like"]:
             lim.insert(0, "Phone-like or narrowband audio: reliability is lower.")
@@ -108,7 +123,8 @@ class Pipeline:
                         "fusion_bias": round(f["bias"], 3)},
             "segments": segs,
             "analyzers": [{"name": n, "ran": r["ran"], "finding": r["finding"],
-                           "llr_contribution": round(f["contrib"].get(n, 0.0), 3), "ms": r["ms"]} for n, r in res.items()],
+                           "llr_contribution": round(f["contrib"].get(n, 0.0), 3), "ms": r["ms"],
+                           "role": "vote" if n in self.used else "evidence"} for n, r in res.items()],
             "manipulation": {"type": "unknown", "confidence": 0.0},
             "channel": ch,
             "transcript": None,
