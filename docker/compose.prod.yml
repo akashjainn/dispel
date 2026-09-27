@@ -9,6 +9,15 @@ services:
       - path: /opt/dispel/.env
     environment:
       DATA_DIR: /var/lib/dispel
+      # Stand-in detector while MODEL_DIR has no hearsay.json (server/app/hf_model.py). Weights are fetched once into
+      # HF_HOME on the data volume; audio is scored here and never sent to Hugging Face.
+      HF_MODEL: mo-thecreator/Deepfake-audio-detection
+      HF_REVISION: e4d9874b493362149cec96ced85f00b00b1a04c0
+      HF_HOME: /var/lib/dispel/hf
+      # Skip the evidence-only analyzers of profile nn: the app never shows them, they add ~230 ms of CPU per check, and
+      # v5c ships no reference stats, so their findings always read "within the range of real speech", even under a
+      # likely_synthetic verdict. Scores do not change. Turn back on once a release carries ref/prosody_ref.
+      HEARSAY_EXPLAIN: "0"
     volumes:
       - /opt/dispel/models:/models:ro # the persistent Vultr volume, holds the model weights
       - /opt/dispel/data:/var/lib/dispel # check history (server/app/store.py); survives redeploys, not a server replacement

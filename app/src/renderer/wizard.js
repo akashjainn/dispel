@@ -2,12 +2,54 @@
 
 const $ = (id) => document.getElementById(id);
 
-// Back to front, as in focus-wizard: pot, wizard, wand, poof.
+// Back to front, as in focus-wizard: pot, wizard (or witch), wand, poof. Every
+// layer has a pixel-art (2d) and a pre-rendered 3D (3d) sheet.
+const px = (name) => `../../Assets/${name}`;
+const render3d = (name) => ({ src: `../../Assets/3d/${name}`, scale: 4 });
 const stage = new Stage($('stage'));
-const potLayer = stage.add('../../Assets/pot-sheet.png', emptyPot);
-const wizardLayer = stage.add('../../Assets/wizard-sprites.png', noStewShadow);
-const wandLayer = stage.add('../../Assets/wand-hand.png');
-const poofLayer = stage.add('../../Assets/wizard-poof.png');
+const potLayer = stage.add({ '2d': px('pot-sheet.png'), '3d': render3d('pot-sheet.png') }, emptyPot);
+const wizardLayer = stage.add(
+  {
+    'wizard-2d': px('wizard-sprites.png'),
+    'witch-2d': px('witch-sprites.png'),
+    'wizard-3d': render3d('wizard-sprites.png'),
+    'witch-3d': render3d('witch-sprites.png'),
+  },
+  noStewShadow,
+);
+const wandLayer = stage.add({ '2d': px('wand-hand.png'), '3d': render3d('wand-hand.png') });
+const poofLayer = stage.add({ '2d': px('wizard-poof.png'), '3d': render3d('wizard-poof.png') });
+const presence = new Presence(stage, { wizard: wizardLayer, wand: wandLayer, pot: potLayer }); // magic.js
+
+// ---------- looks: wizard or witch, 2D or 3D ----------
+
+const LOOK_SHEETS = [
+  [potLayer, (l) => l.style],
+  [wizardLayer, (l) => `${l.character}-${l.style}`],
+  [wandLayer, (l) => l.style],
+  [poofLayer, (l) => l.style],
+];
+const CHARACTERS = ['wizard', 'witch'];
+const STYLES = ['2d', '3d'];
+const validLook = (l, fallback) => ({
+  character: CHARACTERS.includes(l?.character) ? l.character : fallback.character,
+  style: STYLES.includes(l?.style) ? l.style : fallback.style,
+});
+const loadLook = (l) => Promise.all(LOOK_SHEETS.map(([layer, key]) => layer.load(key(l))));
+
+let shown = null; // the look on screen
+function applyLook(l) {
+  shown = l;
+  for (const [layer, key] of LOOK_SHEETS) layer.use(key(l));
+  stage.pixel = l.style === '2d'; // effects follow the look: pixel grid or smooth
+  document.documentElement.classList.toggle('look-3d', l.style === '3d');
+}
+// Main passes the saved look in the page URL so the very first frame is right.
+applyLook(validLook(Object.fromEntries(new URLSearchParams(location.search)), { character: 'wizard', style: '2d' }));
+
+const voice = new Voice(() => shown.character); // voice.js
+const VERDICT_LINES = { likely_synthetic: ['reveal', 'snark'], likely_real: ['real'], inconclusive: ['unsure'] };
+let spellSaid = false; // main can redraw the alert while hanging up: shout only once
 
 const COPY = {
   likely_synthetic: { title: 'This voice is likely synthetic.', label: 'chance it’s synthetic' },
@@ -118,6 +160,12 @@ const states = {
     wizardLayer.play(WIZARD.vanish, 14, { once: true, onDone: () => window.wizard.vanished() });
   },
 
+  // A hello when summoned; main folds it away after a few seconds.
+  greet({ appear, text }) {
+    states.idle({ appear });
+    showBubble({ title: text });
+  },
+
   idle({ appear }) {
     setBody();
     hideBubble();
@@ -132,6 +180,7 @@ const states = {
     potLayer.play(POT.bubble, 12);
     wizardLayer.play(WIZARD.focus, 8);
     showBubble({ title: `Hmm… let me listen to “${name}”.`, note: 'Consulting the cauldron…' });
+    voice.interrupt('drop');
   },
 
   result({ result, error, message }) {
@@ -142,6 +191,8 @@ const states = {
       wizardLayer.play(WIZARD.happy, 6);
       poof();
       showBubble({ title: message });
+      if (spellSaid) voice.say('gone'); // after the hang-up spell
+      spellSaid = false;
       return;
     }
     if (error || !result) {
@@ -158,6 +209,7 @@ const states = {
       note: 'One clip isn’t proof. Check the source too.',
       learnMore: true,
     });
+    voice.say(...VERDICT_LINES[verdict]); // after "let me stir the cauldron" finishes
   },
 
   // Learn mode: the wizard teaches, one short page at a time. Paging happens
@@ -221,6 +273,16 @@ const states = {
       wand(false);
       return;
     }
+    if (prompt === 'ending') {
+      // "Yes, hang up": the wand comes out and the spell flies at the call
+      // window. Main draws the rest (obliterate.html) and quits the app.
+      hideBubble();
+      presence.obliterate((tip) => window.wizard.blastFire(...stageToWindow(tip)));
+      if (!spellSaid) voice.interrupt('cast');
+      spellSaid = true;
+      return;
+    }
+    spellSaid = false;
     const ASK = {
       ask: { text: 'Do you want me to end the call?', yes: true, noLabel: 'No' },
       ending: { text: `Hanging up ${app}…`, yes: false, noLabel: null },
@@ -244,10 +306,67 @@ const states = {
   },
 };
 
+// Changing looks. A new character: the old one sinks into the hat, a poof and
+// a burst of sparkles cover the swap, and the new one rises out. A new style
+// (2D <-> 3D): a glowing line sweeps up from the cauldron, leaving the new
+// look behind it. Sheets load before anything moves; a newer change or a
+// state change settles the running transition first.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let lookChange = 0;
+let morphTo = null; // the look a character morph will land on
+
+window.wizard.onLook(async (next) => {
+  const id = ++lookChange;
+  const target = validLook(next, shown);
+  await loadLook(target);
+  if (id !== lookChange) return; // superseded while loading
+  stage.finishSweep();
+  settleMorph();
+  if (target.character === shown.character && target.style === shown.style) return;
+  if (mode === 'hidden' || mode === 'vanish' || reduceMotion.matches) {
+    applyLook(target);
+  } else if (target.character !== shown.character) {
+    morph(target);
+  } else {
+    stage.sweepTo(() => applyLook(target));
+  }
+});
+
+function morph(target) {
+  const resume = wizardLayer.loop;
+  morphTo = target;
+  stage.burst(47, 30, 8); // a few sparks as the spell starts
+  wizardLayer.play(WIZARD.vanish, 18, {
+    once: true,
+    onDone: () => {
+      settleMorph();
+      poof();
+      stage.burst(47, 64, 26); // from the hat, where the swap happens
+      wizardLayer.play(WIZARD.appear, 16, {
+        once: true,
+        onDone: () => resume && wizardLayer.play(resume.frames, resume.fps),
+      });
+    },
+  });
+}
+
+function settleMorph() {
+  if (morphTo) applyLook(morphTo);
+  morphTo = null;
+}
+
 window.wizard.onState((state) => {
+  settleMorph();
   mode = state.mode;
+  presence.setMode(state.mode, state);
   states[state.mode]?.(state);
 });
+
+// Stage pixels -> page px (the stage canvas sits in the window's bottom-right).
+function stageToWindow([x, y]) {
+  const r = $('stage').getBoundingClientRect();
+  return [r.left + (x / STAGE_W) * r.width, r.top + (y / STAGE_H) * r.height];
+}
 
 // ---------- input: click to choose a file, drag to move, drop to analyze ----------
 
@@ -342,18 +461,39 @@ wiz.addEventListener('pointermove', (e) => {
   if (press.dragging) window.wizard.drag('move', e.screenX, e.screenY);
 });
 
-wiz.addEventListener('pointerup', () => {
+wiz.addEventListener('pointerup', (e) => {
   if (!press) return;
   if (press.dragging) window.wizard.drag('end', 0, 0);
-  else if (mode === 'idle' || mode === 'result') window.wizard.pickFile();
+  else if (mode === 'idle' || mode === 'result' || mode === 'greet') {
+    const r = wiz.getBoundingClientRect();
+    presence.click(((e.clientX - r.left) / r.width) * STAGE_W, ((e.clientY - r.top) / r.height) * STAGE_H);
+    window.wizard.pickFile();
+  }
   wiz.style.cursor = '';
   press = null;
 });
 
+// The character notices the pointer: a smile and a hop.
+wiz.addEventListener('pointerenter', () => presence.hover(true));
+wiz.addEventListener('pointerleave', () => presence.hover(false));
+
+// dragleave fires when moving between elements too, so wait a moment before
+// deciding the file really left.
+let dragLeft = null;
 document.addEventListener('dragover', (e) => {
   e.preventDefault();
   document.body.classList.add('drop-hover');
+  clearTimeout(dragLeft);
+  presence.dragOver(true);
 });
-document.addEventListener('dragleave', () => document.body.classList.remove('drop-hover'));
+document.addEventListener('dragleave', () => {
+  document.body.classList.remove('drop-hover');
+  clearTimeout(dragLeft);
+  dragLeft = setTimeout(() => presence.dragOver(false), 120);
+});
 // The preload sends the dropped file to main; this only clears the glow.
-document.addEventListener('drop', () => document.body.classList.remove('drop-hover'));
+document.addEventListener('drop', () => {
+  document.body.classList.remove('drop-hover');
+  clearTimeout(dragLeft);
+  presence.dragOver(false);
+});

@@ -1,0 +1,22 @@
+/* A transparent, click-through window over the whole display (see
+   src/main/obliterate.js). Only the spell is drawn. */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+#fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The pixel look: each canvas pixel is a 2x2 block, like the sprites. */
+#fx.pixel {
+  image-rendering: pixelated;
+}

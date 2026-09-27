@@ -1,6 +1,7 @@
 """FastAPI wrapper around the hearsay pipeline. Contract: docs/INTERFACES.md.
 
 If MODEL_DIR contains hearsay.json the real pipeline is loaded at startup (mock: false).
+Otherwise, if HF_MODEL is set, a third-party Hugging Face detector stands in (hf_model.py, mock: false).
 Otherwise a demo answer built from the canned example is returned (mock: true), so the app and tests work
 without weights: about 70% likely synthetic, 30% likely real. Calls may omit the file while mocked (no call
 audio is captured yet).
@@ -24,7 +25,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import store
 
-VERSION = "0.5"
+VERSION = "0.6"
 # Anything ffmpeg can decode; video containers keep only their audio track.
 ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".oga", ".opus", ".flac", ".aac", ".mp4", ".mov"}
 SOURCES = {"file", "call"}
@@ -34,7 +35,8 @@ MOCK_SYNTHETIC_SHARE = 0.7  # demo answers only: share that come out likely synt
 log = logging.getLogger("dispel")
 
 _PIPE = None
-_PIPE_ERR = None
+_HF = None  # stand-in used only when _PIPE did not load
+_LOAD_ERRS: list[str] = []
 _LOCK = threading.Lock()  # one inference at a time: bounded memory on a small CPU instance
 
 
@@ -44,7 +46,7 @@ def _model_dir():
 
 
 def _load_pipeline():
-    global _PIPE, _PIPE_ERR
+    global _PIPE
     d = _model_dir()
     if not d or not (d / "hearsay.json").is_file():
         return
@@ -54,13 +56,37 @@ def _load_pipeline():
                          profile=os.getenv("FUSION_PROFILE", "app"))
         log.info("hearsay pipeline loaded from %s", d)
     except Exception as e:  # keep serving the mock rather than crash-looping
-        _PIPE_ERR = f"{type(e).__name__}: {e}"
+        _LOAD_ERRS.append(f"hearsay: {type(e).__name__}: {e}")
         log.exception("could not load hearsay pipeline")
+
+
+def _load_hf():
+    global _HF
+    repo = os.getenv("HF_MODEL")
+    if _PIPE is not None or not repo:
+        return
+    try:
+        from .hf_model import HFDetector  # heavy imports (torch); first run downloads the weights into HF_HOME
+        _HF = HFDetector(repo, os.getenv("HF_REVISION") or None)
+        log.info("stand-in model %s loaded", repo)
+    except Exception as e:
+        _LOAD_ERRS.append(f"{repo}: {type(e).__name__}: {e}")
+        log.exception("could not load %s", repo)
+
+
+def _load_models():
+    _load_pipeline()
+    _load_hf()
+
+
+def _active():
+    """The model answering checks, or None when answers are demo data."""
+    return _PIPE if _PIPE is not None else _HF
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    await run_in_threadpool(_load_pipeline)  # ~20 s on CPU: sha256 checks + model load
+    await run_in_threadpool(_load_models)  # ~20 s on CPU: sha256 checks + model load (+ a one-time HF download)
     yield
 
 
@@ -126,16 +152,17 @@ def landing():
 
 @app.get("/health")
 def health():
-    body = {"ok": True, "model": _PIPE.spec["name"] if _PIPE else "mock", "device": os.getenv("DEVICE", "cpu"),
-            "version": VERSION, "mock": _PIPE is None, "weights_found": _weights_present()}
-    if _PIPE_ERR:
-        body["load_error"] = _PIPE_ERR
+    name = _PIPE.spec["name"] if _PIPE else _HF.name if _HF else "mock"
+    body = {"ok": True, "model": name, "device": os.getenv("DEVICE", "cpu"),
+            "version": VERSION, "mock": _active() is None, "weights_found": _weights_present()}
+    if _LOAD_ERRS:
+        body["load_error"] = "; ".join(_LOAD_ERRS)
     return body
 
 
 def _run(data: bytes, prior: float):
     with _LOCK:
-        return _PIPE.analyze(data, prior)
+        return _active().analyze(data, prior)
 
 
 @app.post("/analyze", dependencies=[Depends(require_key)])
@@ -197,7 +224,7 @@ async def _analyze(file: UploadFile | None, prior: float, source: str) -> dict:
     if file is None:  # calls have no captured audio yet; only the mock can answer them
         if source != "call":
             raise ApiError(400, "bad_request", "file is required")
-        if _PIPE is not None:
+        if _active() is not None:
             raise ApiError(400, "too_short", "no call audio sent")
         return _mock(prior, t0)
     if Path(file.filename or "").suffix.lower() not in ALLOWED_EXT:
@@ -208,7 +235,7 @@ async def _analyze(file: UploadFile | None, prior: float, source: str) -> dict:
     if not data:
         raise ApiError(400, "too_short", "empty file")
 
-    if _PIPE is None:
+    if _active() is None:
         return _mock(prior, t0)
     try:
         resp = await run_in_threadpool(_run, data, prior)  # audio lives only in memory / a deleted temp file
@@ -222,5 +249,6 @@ async def _analyze(file: UploadFile | None, prior: float, source: str) -> dict:
     except Exception:
         log.exception("analyze failed")
         raise ApiError(500, "internal", "analysis failed")
+    resp["version"] = VERSION
     resp["mock"] = False
     return resp

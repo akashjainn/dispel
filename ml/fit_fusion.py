@@ -35,6 +35,8 @@ GROUPS = [("prosody", prosody.FEATURES), ("spectral", spectral.FEATURES), ("voic
 
 
 def min_dcf(s, y, p=0.3, cfp=4.0):
+    """Normalized minDCF for NSA's analyst scenario: y=1 synthetic, higher s = more synthetic, P(synthetic)=0.3,
+    a false alarm on a real clip costs 4x a missed synthetic (NSA instructions)."""
     o = np.argsort(-s)
     y = y[o]
     P, N = y.sum(), (1 - y).sum()

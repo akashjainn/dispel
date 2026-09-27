@@ -44,10 +44,9 @@ def _sf_decode_mono(path):
     if nfo.channels > MAX_CHANNELS or nfo.samplerate > MAX_SR:
         raise ValueError(f"unsupported layout: {nfo.channels} ch at {nfo.samplerate} Hz")
     limit = int(MAX_DECODE_S * nfo.samplerate)
-    parts, n = [], 0
+    parts = []  # frames=limit bounds the read
     for blk in sf.blocks(path, blocksize=nfo.samplerate, dtype="float32", always_2d=True, frames=limit):
         parts.append(blk.mean(1))
-        n += len(blk)
     x = np.concatenate(parts) if parts else np.zeros(0, np.float32)
     return x, nfo.samplerate, nfo.channels
 
