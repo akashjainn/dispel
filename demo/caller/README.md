@@ -31,6 +31,10 @@ laptop and sends nothing anywhere except into the call you placed.
      `msteams:/l/call/0/0?users=<judge's Teams account>`; FaceTime uses
      `facetime-audio://<Apple ID email or phone>` (audio) or `facetime://…` (video).
      Discord has no call link: start that call by hand.
+   - `autoConfirm: true` (FaceTime): the rig clicks FaceTime's "Call" prompt
+     itself, so dialing needs no click on this laptop. Give the app running
+     `npm start` (Terminal, iTerm, VS Code) access under System Settings →
+     Privacy & Security → **Accessibility**; without it the phone says to click Call.
    - `app`: the app name that "Hang up" quits (like ⌘Q).
    - `callers[]`: one button per clip. `audio` is a path under `clips/`.
    - `monitor: true` also plays the clip on the caller laptop's speakers.

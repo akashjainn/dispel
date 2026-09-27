@@ -18,7 +18,8 @@
       "app": "FaceTime",
       "dial": "facetime-audio://judge-laptop@example.com",
       "dialVideo": "facetime://judge-laptop@example.com",
-      "note": "FaceTime asks to confirm on the caller laptop: click Call."
+      "autoConfirm": true,
+      "note": "Dials without a click here (needs Accessibility for the terminal running the rig)."
     },
     "discord": {
       "label": "Discord",
