@@ -1,6 +1,7 @@
 """NSA-hint feature test: breaths/pauses, spectrogram 'ribs' (harmonic structure extent), and start-vs-middle drift.
 For each feature: AUC (fake vs real) on several independent pairings; a useful feature points the SAME way everywhere.
 Out: results/hint_feats.csv (per clip), results/hint_feats.md (table)."""
+import zlib
 import csv, sys, glob
 from pathlib import Path
 from multiprocessing import Pool
@@ -70,7 +71,7 @@ if __name__ == "__main__":
     I = []
     M = pd.read_csv(R / "evalbundle/manifest.csv")
     for r in M.itertuples():
-        if r.set == "diffssd_test_holdout" and hash(r.file) % 3: continue   # 1/3 subsample for speed
+        if r.set == "diffssd_test_holdout" and zlib.crc32(r.file.encode()) % 3: continue   # 1/3 subsample, same every run
         I.append((r.set if r.set != "libri_clone" else "libri_clone_" + r.detail, r.label, str(R / "evalbundle" / r.file)))
     for r in csv.DictReader(open(R / "data/consent/sts/meta.csv")): I.append(("voice_changer", 1, str(R / r["file"])))
     for r in csv.DictReader(open(R / "data/el_matrix/meta.csv")):

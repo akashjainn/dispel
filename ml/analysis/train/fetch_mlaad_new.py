@@ -17,8 +17,11 @@ for m in MISSING:
 def get(p):
     dst = O / p.replace("fake/en/", "", 1)
     if dst.exists(): return
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.parent.mkdir(parents=True, exist_ok=True); part = dst.with_name(dst.name + ".part")
     url = "https://huggingface.co/datasets/mueller91/MLAAD/resolve/main/" + urllib.parse.quote(p)
-    subprocess.run(["curl", "-sfL", "-H", f"Authorization: Bearer {T}", "-o", str(dst), url])
+    # token goes in through curl's config on stdin, never on the command line (visible in process listings)
+    r = subprocess.run(["curl", "-sfL", "-K", "-", "-o", str(part), url], input=f'header = "Authorization: Bearer {T}"\n', text=True)
+    if r.returncode == 0: part.replace(dst)
+    else: part.unlink(missing_ok=True); print("FAILED", r.returncode, p, flush=True)
 with ThreadPoolExecutor(8) as ex: list(ex.map(get, jobs))
 print("DONE", len(jobs), flush=True)

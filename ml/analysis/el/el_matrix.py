@@ -18,9 +18,11 @@ import requests, soundfile as sf
 R = Path.home() / "hackgt"; O = R / "data/el_matrix"; O.mkdir(parents=True, exist_ok=True); LEDGER = R / "data/consent/credits.csv"
 KEY = (Path.home() / ".config/hackgt/elevenlabs_key3").read_text().strip(); API = "https://api.elevenlabs.io/v1"; H = {"xi-api-key": KEY}
 N = int(os.getenv("N", "30")); BUDGET = float(os.getenv("EL_BUDGET", "80000")); ONLY = os.getenv("ONLY")
-spent = lambda: sum(float(r["credits"]) for r in csv.DictReader(open(LEDGER)))
+spent = lambda: sum(float(r["credits"]) for r in csv.DictReader(open(LEDGER))) if LEDGER.exists() else 0.0  # header: time,person,kind,credits
 def log(kind, c):
-    with open(LEDGER, "a", newline="") as f: csv.writer(f).writerow([time.strftime("%F %T"), "el_matrix", kind, round(c, 1)])
+    new = not LEDGER.exists()
+    with open(LEDGER, "a", newline="") as f:
+        w = csv.writer(f); new and w.writerow(["time", "person", "kind", "credits"]); w.writerow([time.strftime("%F %T"), "el_matrix", kind, round(c, 1)])
 voices = [v for v in requests.get(API + "/voices", headers=H, timeout=60).json()["voices"] if v.get("category") == "premade"]
 excl = {Path(p).stem for p in (R / "data/nsa/LJRealResampled/resampled").glob("*.wav")}
 excl |= {Path(r["path"]).stem for r in csv.DictReader(open(R / "data/splits/v3_val.csv")) if r["group"] == "ljspeech"}
@@ -74,8 +76,10 @@ if not ONLY or "voice_design" in ONLY:
              "A tired male call-center agent, flat monotone, slightly muffled phone quality", "A cheerful Australian man in his 30s",
              "A raspy older woman, smoker's voice, New York accent", "A soft-spoken young man, gentle, slightly breathy", "A confident female lawyer, crisp articulation"]
     k = len(list(d.glob("*.mp3")))
+    designed = {r["voice"] for r in csv.DictReader(open(meta)) if r["avenue"] == "voice_design"}  # rerun: no second charge
     for i, desc in enumerate(descs):
         if k >= N: break
+        if desc[:40] in designed: continue
         tid, t = texts[ti + i]; t = (t + " " + texts[ti + i + 50][1])[:180]
         if len(t) < 100: t = (t + " " + texts[ti + i + 99][1])[:180]
         q = requests.post(API + "/text-to-voice/design", headers=H, json={"voice_description": desc, "text": t, "model_id": "eleven_multilingual_ttv_v2"}, timeout=180)

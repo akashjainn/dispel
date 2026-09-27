@@ -44,9 +44,10 @@ if os.getenv("DRY"): sys.exit()
 # 2. voice
 vf = D / "voice_id.txt"
 if not vf.exists():
-    with open(D / "raw.m4a", "rb") as fh:
+    src = D / "raw.m4a" if (D / "raw.m4a").exists() else D / "raw16.wav"  # original recording if kept, else the 16 kHz input
+    with open(src, "rb") as fh:
         r = requests.post(API + "/voices/add", headers=H, data={"name": f"hackgt-{person}-consented", "remove_background_noise": "false"},
-                          files=[("files", ("raw.m4a", fh, "audio/mp4"))], timeout=120)
+                          files=[("files", (src.name, fh, "audio/mp4" if src.suffix == ".m4a" else "audio/wav"))], timeout=120)
     r.raise_for_status(); vf.write_text(r.json()["voice_id"]); print("voice created")
 vid = vf.read_text().strip()
 # 3. paired generation

@@ -4,7 +4,10 @@
 (2) Condition-aware normalization: real clips' fused LLR shifts by condition (rubberband pushes reals toward
     'synthetic'), which hurts when conditions are mixed in one ranking. Subtract the expected real-clip LLR of the
     predicted condition (probability-weighted), estimated on training folds only. Compare pooled minDCF.
-(3) Apply the detector to NSA's 1,671 test clips: which stretch method(s) did NSA use?"""
+(3) Apply the detector to NSA's 1,671 test clips: which stretch method(s) did NSA use?
+Caveat (exploratory study, not used by any release): the per-group feature models in (2) are cross-fitted but not
+nested inside the outer folds, so the fusion sees features whose models were trained on other folds that include its
+test rows' labels. Treat the pooled minDCF here as optimistic; fit_fusion.py has the nested version."""
 import sys, glob, os, warnings
 from pathlib import Path
 from multiprocessing import Pool
@@ -81,8 +84,12 @@ if not tf.exists():
 T = pd.read_csv(tf)
 sub = pd.read_csv(R / "submissions/draft_v4p6_nsa.tsv", sep="\t")
 nv = pd.read_csv(R / "results/nsa_test_v4.csv") if (R / "results/nsa_test_v4.csv").exists() else None
-T = T.merge(nv.assign(file=nv.path.str.split("/").str[-1])[["file", "s_v3"]].rename(columns={"s_v3": "v3"}), on="file") if nv is not None else T
-T = T.merge(pd.read_csv(R / "results/nsa_test_lfcc.csv"), on="file") if (R / "results/nsa_test_lfcc.csv").exists() else T
+n_test = len(T); assert T.file.is_unique, "duplicate file names in the NSA feature table"
+T = T.merge(nv.assign(file=nv.path.str.split("/").str[-1])[["file", "s_v3"]].rename(columns={"s_v3": "v3"}), on="file", how="left", validate="one_to_one") if nv is not None else T
+T = T.merge(pd.read_csv(R / "results/nsa_test_lfcc.csv"), on="file", how="left", validate="one_to_one") if (R / "results/nsa_test_lfcc.csv").exists() else T
+assert len(T) == n_test, f"NSA clips lost in a join: {len(T)} of {n_test}"
+for c in ("v3", "lfcc"):
+    if c in T: print(f"{c}: {T[c].notna().sum()} of {n_test} NSA clips have a score (missing ones are NaN for the GBM)")
 for f in FEATS:
     if f not in T: T[f] = np.nan
 PT = clf_all.predict_proba(T[FEATS].values.astype(float))

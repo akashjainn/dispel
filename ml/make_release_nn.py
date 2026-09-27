@@ -8,7 +8,7 @@ import sys, json, shutil, datetime, csv
 from pathlib import Path
 import numpy as np, joblib, torch, sklearn
 from sklearn.linear_model import LogisticRegression
-H = Path.home() / "hackgt"; sys.path.insert(0, str(H / "dispel_pr8fix"))
+H = Path.home() / "hackgt"; sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # this checkout's hearsay/
 from hearsay.analyzers.dl_detector import sha256
 ck, npz, out, name = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4]
 base = H / "data/release/v4p6"; out.mkdir(parents=True, exist_ok=True)

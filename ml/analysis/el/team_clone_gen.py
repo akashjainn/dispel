@@ -4,6 +4,7 @@ over eleven_v3 / eleven_multilingual_v2 / eleven_flash_v2_5. Texts: LJ Speech se
 LJRealResampled clips, our validation LJ clips, and texts already used by el_stock / el_frontier.
 Credits tracked locally (key lacks user_read) in data/consent/credits.csv; hard cap EL_BUDGET over that whole ledger.
 Out: data/consent/team_gen/<spk>/<model>__<text_id>.mp3, data/consent/team_gen/meta.csv, data/consent/team/voices.json"""
+import contextlib
 import csv, json, os, random, sys, time
 from pathlib import Path
 import requests
@@ -25,8 +26,9 @@ vf = C / "team/voices.json"; voices = json.loads(vf.read_text()) if vf.exists() 
 for s in spks:
     if s in voices: continue
     fs = sorted((C / "team/real").glob(f"{s}_*.wav"))
-    r = requests.post(API + "/voices/add", headers=H, data={"name": f"hackgt-{s}-consented", "remove_background_noise": "false"},
-                      files=[("files", (f.name, open(f, "rb"), "audio/wav")) for f in fs], timeout=180)
+    with contextlib.ExitStack() as st:  # close every clip after the upload
+        r = requests.post(API + "/voices/add", headers=H, data={"name": f"hackgt-{s}-consented", "remove_background_noise": "false"},
+                          files=[("files", (f.name, st.enter_context(open(f, "rb")), "audio/wav")) for f in fs], timeout=180)
     if r.status_code != 200: sys.exit(f"voice add failed for {s}: {r.status_code} {r.text[:300]}")
     voices[s] = r.json()["voice_id"]; vf.write_text(json.dumps(voices, indent=1)); print("voice", s, flush=True)
 excl = {Path(p).stem for p in (R / "data/nsa/LJRealResampled/resampled").glob("*.wav")}

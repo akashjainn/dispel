@@ -11,9 +11,11 @@ import requests, soundfile as sf
 R = Path.home() / "hackgt"; O = R / "data/el_extra"; O.mkdir(parents=True, exist_ok=True); LEDGER = R / "data/consent/credits.csv"
 KEY = (Path.home() / ".config/hackgt/elevenlabs_key3").read_text().strip(); API = "https://api.elevenlabs.io/v1"; H = {"xi-api-key": KEY}
 BUDGET = float(os.getenv("EL_BUDGET", "89000"))
-spent = lambda: sum(float(r["credits"]) for r in csv.DictReader(open(LEDGER)))
+spent = lambda: sum(float(r["credits"]) for r in csv.DictReader(open(LEDGER))) if LEDGER.exists() else 0.0  # header: time,person,kind,credits
 def log(kind, c):
-    with open(LEDGER, "a", newline="") as f: csv.writer(f).writerow([time.strftime("%F %T"), "el_extra", kind, round(c, 1)])
+    new = not LEDGER.exists()
+    with open(LEDGER, "a", newline="") as f:
+        w = csv.writer(f); new and w.writerow(["time", "person", "kind", "credits"]); w.writerow([time.strftime("%F %T"), "el_extra", kind, round(c, 1)])
 meta = O / "meta.csv"; new = not meta.exists(); mf = open(meta, "a", newline="")
 w = csv.DictWriter(mf, fieldnames=["file", "kind", "label", "split", "src", "spk"]); new and w.writeheader()
 done = {r["file"] for r in csv.DictReader(open(meta))} if not new else set()
@@ -61,8 +63,10 @@ descs = ["A man in his 50s with a warm Midwestern accent, relaxed storyteller", 
          "A gruff construction foreman, loud and direct", "A teenage boy, bored and mumbling"]
 lj = [r[-1].strip() for r in csv.reader(open(R / "data/diffssd/real_speech/ljspeech/metadata.csv"), delimiter="|", quoting=csv.QUOTE_NONE) if 100 <= len(r[-1].strip()) <= 180]
 random.Random(12).shuffle(lj); k = len(list(d.glob("*.mp3")))
+designed = {r["spk"] for r in csv.DictReader(open(meta)) if r["kind"] == "voice_design"}  # rerun: no second charge
 for i, desc in enumerate(descs):
     t = lj[i]
+    if desc[:30] in designed: continue
     if spent() + len(t) * 3 > BUDGET: sys.exit("budget at design")
     q = requests.post(API + "/text-to-voice/design", headers=H, json={"voice_description": desc, "text": t, "model_id": "eleven_multilingual_ttv_v2"}, timeout=180)
     if q.status_code != 200: print("ERR design", q.status_code, q.text[:160], flush=True); continue

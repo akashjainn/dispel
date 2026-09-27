@@ -38,6 +38,7 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 23:25 · Akash (Claude) · CodeRabbit round 1: AGENTS.md model facts now v5c/nn; cli logs the effective profile; strict fusion zip; tolerant HEARSAY_EXPLAIN; ml/ script fixes (ledger header, rerun guards, left joins, stable subsample, curl failures, HF token off the command line) · PR #20
 - Sat 23:10 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept main's INTERFACES 0.6, HF stand-in and app decisions; hearsay/ from the branch) · PR #20
 - Sat 22:45 · Akash (Claude) · docs/ARCHITECTURE.md (scoring + training diagrams), README results and figure, DECISIONS for interim/final; v5c release live on Vultr (`/health`: v5c, weights_found true) · PR #20
 - Sat 22:30 · Akash (Claude) · v5c trained (2.2 h, warm start v4), chosen on held-out families; release v5c pins profile `nn`; final TSV built · PR #20

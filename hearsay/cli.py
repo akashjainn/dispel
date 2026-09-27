@@ -81,6 +81,9 @@ def predict(a):
     d = Path(a.audio_dir)
     names = read_template(a.template) if a.template else sorted(p.name for p in d.iterdir() if p.suffix.lower() in AUDIO)
     pipe = Pipeline(a.model_dir, profile=a.profile, explain=False)  # TSV: score only, no display-only analyzers
+    if pipe.profile != a.profile:
+        print(f"note: release {pipe.spec['name']} pins profile '{pipe.profile}'; --profile {a.profile} is ignored", file=sys.stderr)
+    print(f"scoring with {pipe.spec['name']}/{pipe.profile}", file=sys.stderr)
     scores, failed, t0 = {}, [], time.time()
     for i, n in enumerate(names, 1):
         p = d / n

@@ -64,6 +64,8 @@ if not done:
     w.writeheader()
 k, made = 0, 0
 while True:
+    if k >= len(texts):
+        break  # texts exhausted before the credit floor
     v = voices[k % len(voices)]; tid, t = texts[k]; model = MODELS[k % len(MODELS)]; k += 1
     if (v["voice_id"], tid) in done:
         continue

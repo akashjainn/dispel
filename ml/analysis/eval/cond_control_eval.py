@@ -1,6 +1,6 @@
 import sys, re
 from pathlib import Path
-src = open(Path.home() / "hackgt/scratch/eval/cond_detect.py").read()
+src = open(Path(__file__).resolve().with_name("cond_detect.py")).read()  # the checked-in detector setup
 head = src.split("folds = list(")[0]
 exec(head)
 X = df[FEATS].values.astype(float)

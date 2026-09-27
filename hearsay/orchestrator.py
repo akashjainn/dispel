@@ -52,7 +52,9 @@ class Pipeline:
         self.lfcc = LFCCDetector(d, self.spec["lfcc"]) if "lfcc" in self.spec and "lfcc" in used else None
         self.context = {"prosody_ref": self.fusion.m.get("prosody_ref", {}), "ref": self.fusion.m.get("ref", {})}
         env = os.getenv("HEARSAY_EXPLAIN")
-        self.explain = (self.profile == "nn") if explain is None and env is None else bool(int(env)) if explain is None else explain
+        if explain is None:  # unset or empty: the profile decides; otherwise 1/true/yes/on (any case) turn it on
+            explain = (self.profile == "nn") if env is None or not env.strip() else env.strip().lower() in ("1", "true", "yes", "on")
+        self.explain = explain
         self.used = used
         self.feature_analyzers = [(n, m) for n, m in (("prosody", prosody), ("spectral", spectral), ("voice", voice),
                                                        ("rhythm", rhythm)) if n in used or self.explain]
