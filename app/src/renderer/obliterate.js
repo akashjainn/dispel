@@ -87,7 +87,8 @@ function start({ from, rect, view, style }) {
         vy: Math.sin(dir) * speed - rand(120, 340) * k,
         spin: rand(-9, 9),
         life: rand(700, 1150),
-        variant: Math.random() < 0.72 ? 0 : Math.random() < 0.6 ? 1 : 2,
+        variant: Math.random() < 0.62 ? 0 : Math.random() < 0.75 ? 1 : 2,
+        twinkle: Math.random() < 0.08 ? rand(0, 1400) : null, // phase of a sparkle while it holds
       });
     }
   }
@@ -109,51 +110,117 @@ function start({ from, rect, view, style }) {
   requestAnimationFrame(frame);
 }
 
-// Crystal tiles: a lit face, a light top-left edge, a dark bottom-right edge.
-// Three stones (plum, slate, magenta) plus a white flash.
+// The bricks the call window turns into, drawn like the sprites: the
+// wizard's and the witch's robe purples, lit from the top left (the 3D
+// sprites' key light), some with a gold robe star.
+// Pixel look: a hand-drawn block, 1px ink outline, light top-left edge,
+// shaded and dithered bottom-right. 3D look: a rounded, beveled block with a
+// soft highlight, the way the 3D sprites are shaded.
+const BRICKS = [
+  // [light, face, shade, deep]
+  ['#b55088', '#68386c', '#512b52', '#3e2731'], // wizard robe
+  ['#645682', '#422d58', '#2d1f3e', '#241e36'], // witch robe
+];
+
 function makeTileSprites(size, pixel) {
-  const stones = [
-    [PAL.plum, PAL.magenta, PAL.ink],
-    [PAL.slate, PAL.steel, PAL.ink],
-    [PAL.magenta, PAL.pink, PAL.plum],
-  ];
   const make = (paint) => {
     const c = Object.assign(document.createElement('canvas'), { width: size, height: size });
-    paint(c.getContext('2d'));
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = !pixel;
+    paint(x);
     return c;
   };
-  const edges = (x, light, dark, e) => {
-    x.fillStyle = light;
-    x.fillRect(0, 0, size, e);
-    x.fillRect(0, 0, e, size);
-    x.fillStyle = dark;
-    x.fillRect(0, size - e, size, e);
-    x.fillRect(size - e, 0, e, size);
+  // A robe star, like the ones on the wizard's robe (gold with an amber middle).
+  const robeStar = (x, cx, cy, r) => {
+    if (pixel) {
+      x.fillStyle = PAL.yellow;
+      x.fillRect(cx - r, cy, r * 2 + 1, 1);
+      x.fillRect(cx, cy - r, 1, r * 2 + 1);
+      x.fillStyle = PAL.gold;
+      x.fillRect(cx, cy, 1, 1);
+      return;
+    }
+    x.save();
+    x.translate(cx, cy);
+    x.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rr = i % 2 ? r * 0.45 : r;
+      x.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    x.closePath();
+    x.fillStyle = PAL.yellow;
+    x.shadowColor = 'rgba(24,20,37,0.5)';
+    x.shadowBlur = r * 0.4;
+    x.shadowOffsetX = r * 0.12;
+    x.shadowOffsetY = r * 0.12;
+    x.fill();
+    x.restore();
   };
-  const e = pixel ? 1 : Math.max(1, Math.round(size / 20));
-  const stone = ([base, light, dark]) =>
+
+  const pixelBrick = ([light, face, shade, deep], star) =>
     make((x) => {
-      if (pixel) {
-        x.fillStyle = base;
-        x.fillRect(0, 0, size, size);
-        x.fillStyle = light; // a facet catching the light
-        for (let i = 0; i < size / 2; i++) x.fillRect(e, e + i, size / 2 - i, 1);
-      } else {
-        const g = x.createLinearGradient(0, 0, size, size);
-        g.addColorStop(0, light);
-        g.addColorStop(0.45, base);
-        g.addColorStop(1, dark);
-        x.fillStyle = g;
-        x.fillRect(0, 0, size, size);
-      }
-      edges(x, light, dark, e);
-      x.fillStyle = PAL.white;
-      x.globalAlpha = pixel ? 1 : 0.75;
-      x.fillRect(e * 2, e * 2, e * 2, e); // glint
-      x.fillRect(e * 2, e * 2, e, e * 2);
+      const n = size - 1; // last row/column is the outline shared with the next brick
+      x.fillStyle = face;
+      x.fillRect(0, 0, n, n);
+      x.fillStyle = shade; // dither toward the shaded corner
+      for (let yy = 0; yy < n; yy++) for (let xx = 0; xx < n; xx++) if (xx + yy > n + 2 && (xx + yy) % 2) x.fillRect(xx, yy, 1, 1);
+      x.fillStyle = light; // lit edges
+      x.fillRect(0, 0, n, 1);
+      x.fillRect(0, 0, 1, n);
+      x.fillStyle = deep; // shaded edges
+      x.fillRect(1, n - 1, n - 1, 1);
+      x.fillRect(n - 1, 1, 1, n - 1);
+      x.fillStyle = PAL.white; // a catch-light in the corner
+      x.fillRect(1, 1, 1, 1);
+      x.fillStyle = PAL.ink; // outline
+      x.fillRect(0, n, size, 1);
+      x.fillRect(n, 0, 1, size);
+      if (star) robeStar(x, Math.floor(n / 2), Math.floor(n / 2), 2);
     });
+
+  const smoothBrick = ([light, face, shade, deep], star) =>
+    make((x) => {
+      const gap = Math.max(1, size * 0.05);
+      const r = size * 0.16;
+      const bevel = size * 0.14;
+      const rect = (inset, rad) => {
+        x.beginPath();
+        x.roundRect(inset, inset, size - inset * 2, size - inset * 2, rad);
+      };
+      // the block: a rim lit from the top left
+      rect(gap / 2, r);
+      const rim = x.createLinearGradient(0, 0, size, size);
+      rim.addColorStop(0, light);
+      rim.addColorStop(0.5, shade);
+      rim.addColorStop(1, deep);
+      x.fillStyle = rim;
+      x.fill();
+      // the face, set in by the bevel
+      rect(gap / 2 + bevel, r * 0.6);
+      const f = x.createLinearGradient(0, 0, size, size);
+      f.addColorStop(0, face);
+      f.addColorStop(1, shade);
+      x.fillStyle = f;
+      x.fill();
+      // soft highlight, top left
+      const hl = x.createRadialGradient(size * 0.32, size * 0.3, 0, size * 0.32, size * 0.3, size * 0.45);
+      hl.addColorStop(0, 'rgba(255,255,255,0.32)');
+      hl.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = hl;
+      x.fill();
+      // dark edge, like the sprites' outline
+      rect(gap / 2, r);
+      x.strokeStyle = 'rgba(24,20,37,0.7)';
+      x.lineWidth = Math.max(1, size * 0.04);
+      x.stroke();
+      if (star) robeStar(x, size / 2, size / 2, size * 0.2);
+    });
+
+  const brick = pixel ? pixelBrick : smoothBrick;
   return {
-    stones: stones.map(stone),
+    // variant 0: wizard robe, 1: witch robe, 2: wizard robe with a star
+    stones: [brick(BRICKS[0], false), brick(BRICKS[1], false), brick(BRICKS[0], true)],
     flash: make((x) => {
       x.fillStyle = PAL.white;
       x.fillRect(0, 0, size, size);
@@ -324,8 +391,8 @@ function draw(now) {
 }
 
 function drawTiles(s, t) {
-  const { tiles, sprites, r } = s;
-  const glint = s.shatterAt == null && t > COVERED ? ((t - COVERED) / 750) % 1.6 - 0.3 : null;
+  const { tiles, sprites } = s;
+  const holding = s.shatterAt == null && t > COVERED;
   for (const tile of tiles) {
     if (t < tile.at) continue;
     const since = t - tile.at;
@@ -367,12 +434,10 @@ function drawTiles(s, t) {
       paintTile(s, tile, img, -tile.w / 2, -tile.h / 2, tile.w, tile.h, since);
       ctx.restore();
     }
-    if (glint != null) {
-      const p = (tile.tx + tile.ty) / (r.w + r.h);
-      if (Math.abs(p - glint) < 0.035) {
-        ctx.globalAlpha = 0.45;
-        ctx.drawImage(sprites.flash, 0, 0, tile.w, tile.h, x, y, tile.w, tile.h);
-      }
+    // While it holds, a few bricks twinkle with the wand's sparkle.
+    if (holding && tile.twinkle != null) {
+      const u = ((t + tile.twinkle) % 1400) / 260;
+      if (u < 1) star(s, x + tile.w * 0.7, y + tile.h * 0.3, (s.pixel ? 3 : 9 * s.k) * Math.sin(u * Math.PI), PAL.yellow);
     }
   }
   ctx.globalAlpha = 1;

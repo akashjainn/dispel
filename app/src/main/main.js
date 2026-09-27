@@ -299,7 +299,7 @@ function onCallMoved({ bounds }) {
   if (!callSession) return;
   callSession.bounds = bounds;
   placeWizard();
-  if (callSession.alerted) showOverlay(bounds);
+  if (callSession.alerted && !callSession.ending) showOverlay(bounds); // hidden while it's being hung up
 }
 
 function onCallEnded() {
@@ -368,11 +368,11 @@ function castSpell(s, from) {
 
 function hangUp(s) {
   if (callSession !== s) return;
+  overlay.hide(); // the window is crystal now; the ring goes with it
   s.endTimer = setTimeout(() => {
     if (callSession !== s) return;
-    s.ending = false;
-    obliterator.shatter();
-    setCallPrompt('failed');
+    console.log('[call] still going 8 s after hanging up');
+    hangUpFailed(s);
   }, 8000);
   calls.endCall(s.app);
 }
@@ -382,8 +382,14 @@ function onEndResult(ok) {
   const s = callSession;
   if (!s?.ending || ok) return;
   clearTimeout(s.endTimer);
+  hangUpFailed(s);
+}
+
+// The call is still going: break the crystal, bring the ring back, and say so.
+function hangUpFailed(s) {
   s.ending = false;
   obliterator.shatter();
+  showOverlay(s.bounds);
   setCallPrompt('failed');
 }
 

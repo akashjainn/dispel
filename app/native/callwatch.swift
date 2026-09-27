@@ -141,7 +141,7 @@ func quittableApps(named name: String?) -> (CallApp, [NSRunningApplication])? {
           !app.quitBundles.isEmpty else { return nil }
     let running = NSWorkspace.shared.runningApplications.filter { r in
         let id = r.bundleIdentifier ?? ""
-        return r.activationPolicy == .regular && app.quitBundles.contains(where: { id.hasPrefix($0) })
+        return !r.isTerminated && r.activationPolicy == .regular && app.quitBundles.contains(where: { id.hasPrefix($0) })
     }
     return (app, running)
 }
@@ -154,17 +154,23 @@ func endCall(named name: String?) -> Bool {
         log("end \(name ?? "-"): nothing to quit")
         return false
     }
+    var ok = false
     for r in running {
         let polite = r.terminate()
         log("end \(app.name): \(r.bundleIdentifier ?? "?") pid \(r.processIdentifier) terminate -> \(polite)")
-        if !polite { log("end \(app.name): SIGTERM -> \(kill(r.processIdentifier, SIGTERM) == 0)") }
+        var sent = polite
+        if !polite {
+            sent = kill(r.processIdentifier, SIGTERM) == 0
+            log("end \(app.name): SIGTERM -> \(sent)")
+        }
+        ok = ok || sent
         let pid = r.processIdentifier
         Thread {
             Thread.sleep(forTimeInterval: 2.5)
             if kill(pid, 0) == 0 { log("end \(app.name): still running, SIGTERM -> \(kill(pid, SIGTERM) == 0)") }
         }.start()
     }
-    return true
+    return ok // false if nothing could even be asked to quit
 }
 
 /// Brings the named call app to the front.
@@ -206,5 +212,8 @@ while true {
         last = line
     }
     // Poll fast during a call so the highlight keeps up when the window is dragged.
-    Thread.sleep(forTimeInterval: (snap["active"] as? Bool) == true ? 0.08 : 0.5)
+    // Wait by running the main run loop, not sleeping: NSWorkspace only updates
+    // runningApplications while it runs, so a sleeping helper keeps a frozen
+    // list and tries to quit an app that has since quit and been reopened.
+    RunLoop.main.run(until: Date().addingTimeInterval((snap["active"] as? Bool) == true ? 0.08 : 0.5))
 }
