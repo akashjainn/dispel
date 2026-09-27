@@ -44,7 +44,25 @@ function dial(platformId, video) {
   if (!p) throw new Error('unknown platform');
   const url = video ? p.dialVideo || p.dial : p.dial;
   if (!url) return { dialed: false, note: p.note || `Start the ${p.label} call by hand.` };
-  return run('open', [url]).then(() => ({ dialed: true, note: p.note || null }));
+  return run('open', [url]).then(async () => {
+    if (!p.autoConfirm) return { dialed: true, note: p.note || null };
+    const result = await confirmCall();
+    if (result === 'clicked') return { dialed: true, note: null };
+    console.warn('[dial] auto-confirm:', result);
+    const why = result.startsWith('error')
+      ? 'Give the app running the rig Accessibility access (System Settings → Privacy & Security → Accessibility)'
+      : 'No Call prompt appeared';
+    return { dialed: true, note: `${why}. Click Call on the caller laptop.` };
+  });
+}
+
+// Clicks the Call prompt that FaceTime links open (confirm-call.js).
+function confirmCall() {
+  return new Promise((resolve) =>
+    execFile('osascript', ['-l', 'JavaScript', path.join(ROOT, 'confirm-call.js'), '10'], { timeout: 15_000 }, (err, out, stderr) =>
+      resolve(err ? `error: ${(stderr || err.message).trim()}` : out.trim()),
+    ),
+  );
 }
 
 function hangUp(platformId) {

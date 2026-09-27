@@ -104,7 +104,7 @@ function renderStatus(st) {
 $('dial').onclick = () =>
   act(async () => {
     const out = await api('POST', '/api/dial', { platform, video: $('video').checked });
-    say(out.dialed ? 'Dialing… answer on the judge’s laptop.' : out.note);
+    say(out.dialed ? (out.note ? `Dialing… ${out.note}` : 'Dialing… answer on the judge’s laptop.') : out.note);
   });
 $('hangup').onclick = () => act(() => api('POST', '/api/hangup', { platform }).then(() => say('Hung up.')));
 $('stop').onclick = () => act(() => api('POST', '/api/stop').then(() => say('Stopped.')));
