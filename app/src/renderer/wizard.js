@@ -132,9 +132,17 @@ function placeBubble() {
   const b = $('bubble');
   b.style.top = '';
   const h = b.offsetHeight;
-  const top = Math.max(6, window.innerHeight - FACE_FROM_BOTTOM - h);
+  // The stacked layout (narrow call windows, wizard.css) sits the bubble above the whole half-size wizard instead.
+  const gap = parseFloat(getComputedStyle(b).getPropertyValue('--bubble-gap')) || FACE_FROM_BOTTOM;
+  const top = Math.max(6, window.innerHeight - gap - h);
   b.style.top = `${top}px`;
 }
+
+// A state can arrive before main's resize lands (e.g. the small watching wizard
+// growing into the bubble window), so place the bubble again once the size settles.
+window.addEventListener('resize', () => {
+  if (!$('bubble').hidden) placeBubble();
+});
 
 function hideBubble() {
   $('bubble').hidden = true;

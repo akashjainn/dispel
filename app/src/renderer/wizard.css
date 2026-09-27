@@ -288,3 +288,31 @@ body.call .stage {
   border-color: var(--purple);
   color: #fff;
 }
+
+/* ---------- stacked bubble: narrow call windows (SIZE.stacked in main.js) ----------
+   A phone-sized call has no room for the bubble beside the wizard, so the bubble
+   spans the window with its tail pointing down at a half-size wizard. The side-by-side
+   window is 400px wide and the others are 80-160px, so only the stacked one matches. */
+@media (min-width: 220px) and (max-width: 399px) {
+  .stage {
+    transform: scale(0.5); /* 1 CSS px per sprite px: still crisp */
+    transform-origin: bottom right;
+  }
+  .bubble {
+    --bubble-gap: 132px; /* read by placeBubble() in wizard.js: just above the half-size wizard */
+    left: 4px;
+    right: 8px;
+    width: auto;
+  }
+  .bubble::after,
+  .bubble.alert::after {
+    right: 34px;
+    bottom: -20px;
+    border: 8px solid transparent;
+    border-top: 12px solid var(--ink);
+  }
+  .bubble.alert::after {
+    border-top-color: var(--purple);
+  }
+}
+

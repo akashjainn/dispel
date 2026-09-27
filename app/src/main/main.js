@@ -28,6 +28,9 @@ const SIZE = {
   plain: { width: 160, height: 240 },
   small: { width: 80, height: 120 }, // gray "watching" wizard in a call's corner (0.5 scale in wizard.css)
   bubble: { width: 400, height: 380 }, // tall enough for the call alert's buttons
+  // Call windows too narrow for the bubble beside the wizard (a phone): the bubble
+  // stacks on top of a half-size wizard (wizard.css, the max-width media query).
+  stacked: { width: 240, height: 500 },
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
@@ -120,8 +123,14 @@ function callPlacement(bounds, size) {
   return { right, bottom: top + size.height };
 }
 
+function bubbleSize() {
+  const room = (callSession?.bounds?.width ?? Infinity) - 2 * CALL_INSET;
+  if (room >= SIZE.bubble.width) return SIZE.bubble;
+  return { width: Math.max(SIZE.stacked.width, Math.floor(room)), height: SIZE.stacked.height };
+}
+
 function placeWizard() {
-  const size = bubble ? SIZE.bubble : mode === 'call-watch' ? SIZE.small : SIZE.plain;
+  const size = bubble ? bubbleSize() : mode === 'call-watch' ? SIZE.small : SIZE.plain;
   const a = callSession ? callPlacement(callSession.bounds, size) : desktopAnchor;
   // The small gray wizard watching a call is passive: clicks go straight
   // through it to whatever is underneath (the call's buttons, other windows).
