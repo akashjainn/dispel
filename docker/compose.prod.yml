@@ -9,6 +9,8 @@ services:
       - path: /opt/dispel/.env
     environment:
       DATA_DIR: /var/lib/dispel
+      # Website checks per client IP per hour (POST /web/analyze). High for the expo: many visitors share one venue IP.
+      WEB_CHECKS_PER_HOUR: "300"
       # Stand-in detector while MODEL_DIR has no hearsay.json (server/app/hf_model.py). Weights are fetched once into
       # HF_HOME on the data volume; audio is scored here and never sent to Hugging Face.
       HF_MODEL: mo-thecreator/Deepfake-audio-detection
@@ -28,6 +30,7 @@ services:
     volumes:
       - /opt/dispel/Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/dispel/repo/web:/srv/web:ro # hocuspocus.tech; updated in place by each deploy
+      - /opt/dispel/repo/app:/srv/app:ro # the website reuses app/Assets and four app/src/renderer scripts (Caddyfile routes only those)
       - caddy_data:/data
     restart: unless-stopped
 volumes:

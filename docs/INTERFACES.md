@@ -1,4 +1,4 @@
-# INTERFACES: version 0.6 (draft)
+# INTERFACES: version 0.7 (draft)
 
 Change this only through a PR that bumps the version and names the change.
 Both `app/` and `server/` code against this file. A mock response is in
@@ -52,7 +52,7 @@ Response 200:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `version` | string | `"0.6"` |
+| `version` | string | `"0.7"` |
 | `clip_id` | string | uuid |
 | `duration_s` | float | clip length in seconds |
 | `input` | object | `{ "sample_rate": int, "channels": int, "codec": str }` |
@@ -77,7 +77,7 @@ DECISIONS.md. **Placeholder until they're set:** `inconclusive` whenever
 0.25 < probability < 0.75.
 
 Errors: `{"error": "<code>", "message": str}` with status 400 (bad input), 401,
-413 (too long or too large), or 500. Error codes: `decode_failed`, `too_short`
+413 (too long or too large), 429 (`rate_limited`, `/web/analyze` only), or 500. Error codes: `decode_failed`, `too_short`
 (< 1 s or empty), `too_long` (> 120 s or over the upload limit, 25 MB),
 `bad_request` (e.g. `prior` outside 0..1, bad `source` or install id), `unauthorized`, `internal`.
 
@@ -85,6 +85,14 @@ Errors: `{"error": "<code>", "message": str}` with status 400 (bad input), 401,
 Needs the bearer key and `X-Dispel-Client`. Query `limit` (1..100, default 20).
 Returns this install's checks, newest first:
 `{"client_id": str, "items": [{"ts": ISO-8601 UTC, "clip_id", "source", "probability", "verdict", "model", "mock": bool, "duration_s"}]}`.
+
+### POST /web/analyze (the public website)
+The file check behind `https://hocuspocus.tech` (`web/`). Same request fields as `/analyze` except `source`
+(always `file`) and the same AnalyzeResponse, but **no bearer key** (a web page can't keep one secret) and no
+`X-Dispel-Client`, so nothing is written to history. Instead each client IP gets `WEB_CHECKS_PER_HOUR` checks
+(default 30) in any rolling hour; the next one gets 429 `rate_limited`. The IP comes from `X-Forwarded-For`,
+which Caddy overwrites with the address it saw. `file` is required (400 `bad_request` without it).
+On hocuspocus.tech Caddy routes only this path and `/health` to the server; the page calls them same-origin.
 
 ## Electron IPC (preload bridge `window.wizard`, app in `app/`)
 Changed in 0.2: the bridge now matches what the app does. The main process
@@ -151,6 +159,7 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.7: `POST /web/analyze` for the public website (no key, no history, per-IP limit, 429 `rate_limited`). Responses say `"version": "0.7"`. Nothing changes for the app.
   `hidden | vanish | idle | greet | analyzing | result | learn | call-watch | call-listen | call-alert`.
   `greet` is `idle` plus a short hello (`text`) when summoned; main folds it
   away after about 5 s. `call-alert` with `prompt: "ending"` plays the hang-up spell.

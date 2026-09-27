@@ -1,0 +1,366 @@
+/* Hocus Pocus website: just the wizard (or witch), its speech bubble and one button. Buttons and the bubble follow
+   the look: chunky pixel blocks in 2D, soft lit shapes in 3D (html.look-3d). Sprites come from app/Assets. */
+
+:root {
+  --bg: #17102a;
+  --ink: #181425; /* Endesga 32, the sprites' palette */
+  --paper: #fffaf0;
+  --plum: #68386c;
+  --plum-hi: #b55088;
+  --plum-lo: #3e2137;
+  --gold: #feae34;
+  --gold-hi: #fee761;
+  --gold-lo: #f77622;
+  --purple: #6b3fa0;
+  --synthetic: #c0392b;
+  --real: #2e7d32;
+  --unsure: #2f6f9f;
+  --on-bg: #efe8ff;
+  --pixel: 'Pixelify Sans', ui-rounded, system-ui, sans-serif;
+  --px: 4px; /* one art pixel of chrome in the 2D look */
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% -10%, #3b2166 0%, #2a1748 35%, var(--bg) 75%) fixed, var(--bg);
+  color: var(--on-bg);
+  font: 16px/1.5 ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow-x: hidden;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* A few twinkling stars, drawn with gradients so there are no extra requests. */
+.sky {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 28% 72%, #fff 60%, transparent),
+    radial-gradient(2px 2px at 44% 12%, var(--gold-hi) 60%, transparent),
+    radial-gradient(1px 1px at 63% 38%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 78% 22%, #d9c2ff 60%, transparent),
+    radial-gradient(1px 1px at 88% 66%, #fff 60%, transparent),
+    radial-gradient(2px 2px at 8% 84%, #d9c2ff 60%, transparent),
+    radial-gradient(1px 1px at 52% 90%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 94% 8%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 36% 44%, var(--gold-hi) 60%, transparent);
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sky { animation: none; } }
+
+/* The logo, top-left (the look switches sit top-right). */
+.brand {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  z-index: 20;
+  font: 500 28px/1 var(--pixel);
+  font-variant-ligatures: none;
+  letter-spacing: 0.02em;
+  color: var(--on-bg);
+  text-decoration: none;
+  text-shadow: 0 0 12px rgba(217, 194, 255, 0.45);
+}
+
+/* ---------- buttons: pixel blocks (2D) ---------- */
+
+.pbtn {
+  --face: var(--plum);
+  --hi: var(--plum-hi);
+  --lo: var(--plum-lo);
+  display: inline-block;
+  margin: var(--px);
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--face);
+  color: #fff;
+  font: 500 16px/1 var(--pixel);
+  font-variant-ligatures: none;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  /* outline with notched corners, lit top-left, shaded bottom-right */
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) var(--lo),
+    inset var(--px) var(--px) var(--hi);
+}
+.pbtn:hover { filter: brightness(1.1); }
+.pbtn:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    inset var(--px) var(--px) var(--lo);
+}
+.pbtn:focus-visible, #file:focus-visible + .pbtn, .stage:focus-visible { outline: 3px dashed var(--gold-hi); outline-offset: 8px; }
+.pbtn:disabled { opacity: 0.5; cursor: default; filter: none; }
+.pbtn-gold { --face: var(--gold); --hi: var(--gold-hi); --lo: var(--gold-lo); color: var(--ink); }
+.pbtn-purple { --face: var(--purple); --hi: #8f63c9; --lo: #4a2a73; }
+.pbtn-big { padding: 14px 22px; font-size: 22px; }
+.pbtn-small { padding: 6px 10px; font-size: 14px; }
+
+/* ---------- buttons: lit 3D shapes ---------- */
+
+.look-3d .pbtn {
+  margin: 0;
+  border-radius: 12px;
+  font: 700 15px/1 ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  letter-spacing: 0;
+  background: linear-gradient(180deg, var(--hi), var(--face) 55%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 5px 0 var(--lo), 0 9px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.look-3d .pbtn:active {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 0 var(--lo), 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+.look-3d .pbtn-big { font-size: 19px; padding: 15px 26px; border-radius: 16px; }
+.look-3d .pbtn-small { font-size: 13px; padding: 7px 12px; border-radius: 10px; }
+
+/* ---------- look switches (top-right) ---------- */
+
+.looks {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.looks .pbtn { font-size: 14px; padding: 6px 10px; }
+.look-3d .looks .pbtn { font-size: 13px; }
+
+/* ---------- the character, centered, with the button under it ---------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 100vh;
+  padding: 72px 16px 40px;
+  transition: background 0.2s;
+}
+.hero.drop-hover { background: radial-gradient(circle at 50% 45%, rgba(181, 80, 136, 0.18), transparent 60%); }
+
+.scene { position: relative; }
+
+.stage {
+  display: block;
+  width: 240px; /* 320x480 canvas at 3 CSS px per art pixel */
+  height: 360px;
+  image-rendering: pixelated;
+  cursor: pointer;
+  transition: filter 0.3s;
+}
+.look-3d .stage { image-rendering: auto; }
+.drop-hover .stage { filter: drop-shadow(0 0 10px #b78cff) drop-shadow(0 0 3px #fff); }
+
+/* The bubble hangs to the left of the character, so the character itself stays centered. */
+.bubble {
+  position: absolute;
+  right: calc(100% + 4px);
+  top: 36px;
+  width: 250px;
+  padding: 12px 14px;
+  background: var(--paper);
+  color: var(--ink);
+  animation: pop 0.18s ease-out;
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    var(--px) calc(2 * var(--px)) rgba(0, 0, 0, 0.35);
+}
+.bubble::after { /* a stepped pixel tail */
+  content: '';
+  position: absolute;
+  right: calc(-3 * var(--px));
+  top: 42px;
+  width: calc(2 * var(--px));
+  height: calc(2 * var(--px));
+  background: var(--ink);
+  box-shadow: var(--px) var(--px) 0 var(--ink), 0 var(--px) 0 var(--ink);
+}
+.look-3d .bubble {
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 -3px 0 rgba(42, 23, 64, 0.08);
+}
+.look-3d .bubble::after {
+  right: -9px;
+  width: 0;
+  height: 0;
+  background: none;
+  box-shadow: none;
+  border: 9px solid transparent;
+  border-left: 10px solid var(--paper);
+  border-right: 0;
+}
+@keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.bubble-title { margin: 0 0 6px; font-size: 16px; font-weight: 800; line-height: 1.25; }
+.bubble-note { margin: 6px 0 0; font-size: 12px; line-height: 1.35; opacity: 0.75; }
+.bubble-note:empty { display: none; }
+.bubble-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.bubble-score { display: flex; align-items: flex-end; gap: 2px; margin: 4px 0 2px; }
+.digits { display: inline-flex; gap: 3px; }
+.digit {
+  display: inline-block;
+  width: 21px;
+  height: 33px;
+  background-image: url('/Assets/number-sprites.png');
+  background-size: 231px 99px;
+  image-rendering: pixelated;
+}
+.percent { font-size: 22px; font-weight: 800; margin: 0 8px 0 2px; line-height: 1; }
+.score-label { font-size: 12px; font-weight: 600; line-height: 1.2; padding-bottom: 3px; }
+.likely_synthetic .percent { color: var(--synthetic); }
+.likely_real .percent { color: var(--real); }
+.inconclusive .percent { color: var(--unsure); }
+
+/* ---------- evidence report ---------- */
+
+.report { max-width: 960px; margin: 0 auto; padding: 8px 16px 64px; scroll-margin-top: 16px; }
+.card {
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 rgba(10, 4, 24, 0.55);
+  padding: 24px clamp(16px, 4vw, 36px) 28px;
+}
+.card h2 { margin: 0; font: 500 clamp(1.7rem, 4vw, 2.3rem)/1.15 var(--pixel); }
+.card h3 { margin: 28px 0 4px; font: 500 1.3rem/1.2 var(--pixel); }
+.eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple); }
+.muted { color: #625a78; }
+.small { font-size: 13px; margin: 0 0 10px; }
+.report-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.report-head .muted { margin: 4px 0 0; overflow-wrap: anywhere; }
+
+.badge { display: inline-block; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; border: 2px solid currentColor; }
+.badge-mock { color: #8a5a00; background: #fff3c4; }
+
+.meter-wrap { margin-top: 20px; }
+.meter-num { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.meter-num span { font: 500 46px/1 var(--pixel); }
+.meter-num small { font-weight: 700; color: #625a78; }
+.v-likely_synthetic .meter-num span { color: var(--synthetic); }
+.v-likely_real .meter-num span { color: var(--real); }
+.v-inconclusive .meter-num span { color: var(--unsure); }
+
+.meter {
+  position: relative;
+  display: grid;
+  grid-template-columns: 25fr 50fr 25fr;
+  height: 34px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  overflow: visible;
+}
+.band .short { display: none; }
+.band { display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; }
+.band-real { background: var(--real); border-radius: 5px 0 0 5px; }
+.band-unsure { background: var(--unsure); }
+.band-synth { background: var(--synthetic); border-radius: 0 5px 5px 0; }
+.meter-mark {
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  width: 6px;
+  margin-left: -3px;
+  background: var(--gold);
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  transition: left 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.meter-scale { position: relative; height: 18px; font-size: 11px; font-weight: 700; color: #625a78; margin: 6px 0 2px; }
+.meter-scale span { position: absolute; transform: translateX(-50%); }
+.meter-scale span:nth-child(1) { left: 0; transform: none; }
+.meter-scale span:nth-child(2) { left: 25%; }
+.meter-scale span:nth-child(3) { left: 75%; }
+.meter-scale span:nth-child(4) { right: 0; transform: none; }
+
+.callout {
+  margin: 20px 0 0;
+  padding: 10px 14px;
+  border-left: 5px solid var(--unsure);
+  background: #eaf2f8;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.callout.warn { border-left-color: #b7791f; background: #fff3c4; }
+
+.timeline { display: flex; flex-direction: column; gap: 8px; }
+.seg { display: grid; grid-template-columns: 84px 1fr 48px; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
+.seg-bar { height: 16px; border-radius: 4px; background: #ece6f5; overflow: hidden; border: 2px solid var(--ink); }
+.seg-fill { height: 100%; }
+.seg-pct { text-align: right; font-variant-numeric: tabular-nums; }
+
+.techniques { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tech { border: 2px solid #d9cfe8; border-radius: 10px; padding: 10px 12px; background: #fff; }
+.tech-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tech-name { font-weight: 800; }
+.tag { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: #efe8fb; color: var(--purple); }
+.tag.off { background: #eee; color: #666; }
+.tech-move { margin-left: auto; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tech-move.up { color: var(--synthetic); }
+.tech-move.down { color: var(--real); }
+.tech-move.none { color: #625a78; }
+.tech p { margin: 6px 0 0; font-size: 14px; }
+.push { position: relative; height: 8px; margin-top: 8px; background: #f1ecf8; border-radius: 4px; }
+.push::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: #b7aacb; }
+.push span { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 24px 0 0; }
+.facts div { background: #f6f1fc; border-radius: 10px; padding: 10px 12px; }
+.facts dt { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple); }
+.facts dd { margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+
+.transcript { margin: 8px 0 0; padding: 10px 14px; border-left: 4px solid var(--lilac); background: #faf7ff; font-style: italic; }
+.limits { margin: 8px 0 0; padding-left: 20px; }
+.limits li { margin: 4px 0; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.card { color: var(--ink); }
+
+
+/* ---------- narrow screens: bubble above the character ---------- */
+
+@media (max-width: 760px) {
+  .brand { position: static; display: block; text-align: center; padding-top: 20px; }
+  .looks { position: static; justify-content: center; padding: 14px 16px 0; }
+  .hero { min-height: calc(100vh - 60px); padding-top: 16px; }
+  .scene { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .bubble { position: relative; right: auto; top: auto; width: min(100%, 320px); }
+  .bubble::after { right: auto; top: auto; bottom: calc(-3 * var(--px)); left: 50%; }
+  .look-3d .bubble::after { right: auto; left: 50%; bottom: -9px; margin-left: -9px; border: 9px solid transparent; border-top: 10px solid var(--paper); border-bottom: 0; }
+  .stage { width: 160px; height: 240px; } /* 2 CSS px per art pixel */
+  .seg { grid-template-columns: 70px 1fr 42px; }
+  .band .long { display: none; }
+  .band .short { display: inline; }
+  .band { font-size: 10px; }
+}
+
+/* Last, because the `font` shorthands above reset it: Pixelify's fi/fl ligatures blur letters together. */
+h1, h2, h3, .meter-num span { font-variant-ligatures: none; }
