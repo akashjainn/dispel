@@ -94,3 +94,9 @@
   clips: `MelodyMachine/Deepfake-audio-detection-V2` (called all 6 TTS clips real at p ~ 1e-5, also through the stock HF
   pipeline) and `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (ranked well but 4 of 8 reals >= 0.75, and
   3-4x slower on CPU). Not yet checked on ElevenLabs clones or phone audio. (israel/hf-model)
+- **Sat 22:45. Wizard voice lines committed as app assets (proposed by Israel, needs Akash's and David's OK):** the wizard
+  and witch speak short ElevenLabs TTS lines at big moments only (file verdicts, the hang-up spell; nothing while idle or
+  listening). The 26 mp3s (1.3 MB) live in `app/Assets/voice/<wizard|witch>/` and are the one exception to "never commit
+  audio": they are UI sound effects, not recordings of anyone, and every teammate needs them for the demo. `.gitignore`
+  allows only `app/Assets/voice/*/*.mp3`; AGENTS.md says so. Voices, model and script: `app/Assets/voice/README.md`.
+  Lines say "likely synthetic" / "likely real", never "fake" or "real" as a certainty. (israel/wizard-voice)

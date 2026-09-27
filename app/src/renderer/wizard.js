@@ -47,6 +47,10 @@ function applyLook(l) {
 // Main passes the saved look in the page URL so the very first frame is right.
 applyLook(validLook(Object.fromEntries(new URLSearchParams(location.search)), { character: 'wizard', style: '2d' }));
 
+const voice = new Voice(() => shown.character); // voice.js
+const VERDICT_LINES = { likely_synthetic: ['reveal', 'snark'], likely_real: ['real'], inconclusive: ['unsure'] };
+let spellSaid = false; // main can redraw the alert while hanging up: shout only once
+
 const COPY = {
   likely_synthetic: { title: 'This voice is likely synthetic.', label: 'chance it’s synthetic' },
   inconclusive: { title: 'I can’t tell from this clip.', label: 'chance it’s synthetic' },
@@ -176,6 +180,7 @@ const states = {
     potLayer.play(POT.bubble, 12);
     wizardLayer.play(WIZARD.focus, 8);
     showBubble({ title: `Hmm… let me listen to “${name}”.`, note: 'Consulting the cauldron…' });
+    voice.interrupt('drop');
   },
 
   result({ result, error, message }) {
@@ -186,6 +191,8 @@ const states = {
       wizardLayer.play(WIZARD.happy, 6);
       poof();
       showBubble({ title: message });
+      if (spellSaid) voice.say('gone'); // after the hang-up spell
+      spellSaid = false;
       return;
     }
     if (error || !result) {
@@ -202,6 +209,7 @@ const states = {
       note: 'One clip isn’t proof. Check the source too.',
       learnMore: true,
     });
+    voice.say(...VERDICT_LINES[verdict]); // after "let me stir the cauldron" finishes
   },
 
   // Learn mode: the wizard teaches, one short page at a time. Paging happens
@@ -270,8 +278,11 @@ const states = {
       // window. Main draws the rest (obliterate.html) and quits the app.
       hideBubble();
       presence.obliterate((tip) => window.wizard.blastFire(...stageToWindow(tip)));
+      if (!spellSaid) voice.interrupt('cast');
+      spellSaid = true;
       return;
     }
+    spellSaid = false;
     const ASK = {
       ask: { text: 'Do you want me to end the call?', yes: true, noLabel: 'No' },
       ending: { text: `Hanging up ${app}…`, yes: false, noLabel: null },

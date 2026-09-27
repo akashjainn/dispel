@@ -28,6 +28,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Israel → David: review the witch character in `app/` (new `Assets/witch-sprites.png`, `scripts/make_witch_sprites.py`, `src/main/prefs.js`; sprite layer can switch sheets) and the IPC note in INTERFACES.md · israel/witch-skin
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
 - Israel → Akash, David: approve INTERFACES.md 0.6 and the Hugging Face stand-in decision in DECISIONS.md (`server/app/hf_model.py`). · israel/hf-model
+- Israel → David, Akash: review the wizard's spoken lines in `app/` (new `src/renderer/voice.js`, hooks in `wizard.js`, `media-src 'self'` in `wizard.html`'s CSP, 26 clips in `Assets/voice/`) and approve the one audio exception in AGENTS.md/.gitignore + DECISIONS.md · israel/wizard-voice
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Handoff: israel/wizard-presence (paused Sat 20:10, Israel moved to backend)
@@ -38,6 +39,7 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 22:45 · Israel (Claude) · app: wizard and witch speak short ElevenLabs lines at big moments only: file drop, file verdict (likely synthetic = reveal + snark; likely real; inconclusive), and the hang-up spell (cast + "that caller's gone"). Wizard = Maverick (library voice), witch = designed voice; clips committed under a narrow audio exception (DECISIONS.md) · israel/wizard-voice
 - Sat 20:50 · Israel (Claude) · merged main into israel/wizard-presence: looks, presence and hang-up spell now run alongside David's call listening, settings and notify; ring stays hidden during the spell under David's focus handling; notify/settings don't redraw (re-cast) the alert mid-hang-up · israel/wizard-presence
 - Sat 20:45 · Israel (Claude) · server: Hugging Face stand-in detector (mo-thecreator/Deepfake-audio-detection, pinned) answers file and call checks when no hearsay release is loaded, instead of demo data; `server/tools/score_folder.py`; INTERFACES 0.6 · israel/hf-model
 - Sat 20:10 · Israel (Claude) · app: helper runs its run loop so it quits the current Discord (not a stale one), ring hides when the spell hits, bricks restyled to match the sprites (untested on screen); paused, see Handoff · israel/wizard-presence
