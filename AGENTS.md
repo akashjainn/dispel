@@ -104,10 +104,12 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
   Release hashes live in `docs/DECISIONS.md`.
 - License: MLAAD is CC BY-NC, so the model and demo are **non-commercial**.
 - Known weaknesses (the report and pitch must say these plainly):
-  - Heavy time-stretching still hurts (librosa phase vocoder: minDCF 0.088 fused vs 0.000 clean). A stretch
-    method never seen in training (rubberband) pushes some real clips toward "synthetic"; under investigation.
-  - Cloned voices of real people on ordinary mics: v4 flags 65% of teammates' consented ElevenLabs clones on clean
-    audio and 35% when stretched, and most still get a "likely real" verdict. Numbers and runs are in `ml/README.md`.
+  - Real speech cleaned by a voice isolator or heavy noise removal often scores as synthetic (v5c: 47% flagged at
+    the threshold that flags 1% of VCTK reals). Every model we tried has this problem.
+  - Heavy phase-vocoder time-stretching: the v5c network alone scores minDCF 0.39 on stretched DiffSSD validation
+    (0.03 clean, 0.07 with ffmpeg atempo). The retired six-analyzer fusion handled this case better (0.09).
+  - Instant voice clones of real people remain the hardest case: on consenting teammates' held-out ElevenLabs clones
+    v5c scores minDCF 0.18 (v4: 0.48). Numbers: `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`.
 
 ## UI and copy rules
 - Never say "fake" or "real" as a certainty. Use "likely synthetic",
@@ -175,7 +177,8 @@ Other rules:
 - Opening and merging PRs is a human decision.
 
 ### Never commit
-- audio files (`*.wav`, `*.mp3`, `*.flac`, `*.m4a`, `*.webm`, `*.ogg`)
+- audio files (`*.wav`, `*.mp3`, `*.flac`, `*.m4a`, `*.webm`, `*.ogg`). One exception: the wizard's
+  generated UI voice lines in `app/Assets/voice/` (TTS, no recordings of anyone; see its README)
 - model weights (`*.pt`, `*.pth`, `*.onnx`, `*.safetensors`, `*.bin`)
 - datasets, `.env` files, or any key or token (ElevenLabs, Hugging Face,
   GitHub). Use `.env.example` with placeholder values instead.

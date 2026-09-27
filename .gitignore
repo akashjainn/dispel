@@ -10,6 +10,8 @@
 *.m4a
 *.webm
 *.ogg
+# ...except the wizard's generated UI voice lines (see app/Assets/voice/README.md)
+!app/Assets/voice/*/*.mp3
 *.pt
 *.pth
 *.onnx

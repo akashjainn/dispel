@@ -126,3 +126,9 @@
   (LLR = 0.696 s - 2.035, fit on DiffSSD validation) only affects the app's probability, never the ranking.
 - **Sat 22:45. Weights reach Vultr from the team PC** (rsync over SSH to `/opt/dispel/models`). Israel added the PC's
   key and a firewall rule for its IP for this; both are removed after the event.
+- **Sat 22:45. Wizard voice lines committed as app assets (proposed by Israel, needs Akash's and David's OK):** the wizard
+  and witch speak short ElevenLabs TTS lines at big moments only (file verdicts, the hang-up spell; nothing while idle or
+  listening). The 26 mp3s (1.3 MB) live in `app/Assets/voice/<wizard|witch>/` and are the one exception to "never commit
+  audio": they are UI sound effects, not recordings of anyone, and every teammate needs them for the demo. `.gitignore`
+  allows only `app/Assets/voice/*/*.mp3`; AGENTS.md says so. Voices, model and script: `app/Assets/voice/README.md`.
+  Lines say "likely synthetic" / "likely real", never "fake" or "real" as a certainty. (israel/wizard-voice)
