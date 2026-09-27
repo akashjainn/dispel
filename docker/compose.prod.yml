@@ -28,6 +28,7 @@ services:
     volumes:
       - /opt/dispel/Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/dispel/repo/web:/srv/web:ro # hocuspocus.tech; updated in place by each deploy
+      - /opt/dispel/repo/app:/srv/app:ro # the website reuses app/Assets and four app/src/renderer scripts (Caddyfile routes only those)
       - caddy_data:/data
     restart: unless-stopped
 volumes:

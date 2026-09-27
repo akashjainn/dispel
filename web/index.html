@@ -3,31 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Team Gemini</title>
-<meta name="description" content="Team Gemini at HackGT 13. Hocus Pocus checks whether audio is likely AI-generated.">
-<style>
-  :root { --bg: #f6f4fb; --fg: #1d1830; --muted: #625a78; --accent: #6b3fd4; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #120f1c; --fg: #ece8f7; --muted: #a39cb8; --accent: #b395ff; }
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    display: grid; place-items: center; padding: 16px;
-    background: var(--bg); color: var(--fg);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-    text-align: center;
-  }
-  h1 { margin: 0; font-size: clamp(2.5rem, 10vw, 5rem); letter-spacing: -0.03em; line-height: 1.05; }
-  h1 span { color: var(--accent); }
-  p { margin: 1rem 0 0; color: var(--muted); }
-</style>
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self'">
+<title>Hocus Pocus</title>
+<meta name="description" content="Drop a voice clip and the wizard tells you whether it's likely AI-generated. By Team Gemini at HackGT 13.">
+<meta name="theme-color" content="#1a1030">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <h1>Team <span>Gemini</span></h1>
-    <p>HackGT 13 · Hocus Pocus: is that voice likely AI-generated?</p>
-    <p>Web app coming soon.</p>
-  </main>
+<div class="sky" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="/">Hocus&nbsp;Pocus</a>
+  <div class="looks" role="group" aria-label="Look">
+    <button id="character" class="chip" type="button" aria-pressed="false">Turn into a witch</button>
+    <button id="style3d" class="chip" type="button" aria-pressed="false">3D look</button>
+    <button id="sound" class="chip" type="button" aria-pressed="true">Voice on</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="drop-zone">
+    <div class="intro">
+      <h1>Is that voice <span class="glow">likely&nbsp;AI</span>?</h1>
+      <p class="lede">Drop a voice clip on the <span id="who">wizard</span>. It listens, stirs the cauldron, and tells you how likely the voice is synthetic, and why.</p>
+      <label class="btn btn-big" for="file">Choose an audio file</label>
+      <input id="file" type="file" class="visually-hidden"
+        accept=".wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.webm,.mp4,.mov,audio/*">
+      <p class="fine">wav, mp3, m4a, flac, ogg, webm, or a video's audio · 1 s to 2 min · up to 25 MB.
+        Your file is <strong>sent to our server</strong> to be checked, then deleted. We don't keep it.</p>
+    </div>
+
+    <div class="scene">
+      <div id="bubble" class="bubble" aria-live="polite">
+        <p id="bubble-title" class="bubble-title"></p>
+        <div id="bubble-score" class="bubble-score" hidden>
+          <span id="digits" class="digits"></span><span class="percent">%</span>
+          <span id="score-label" class="score-label">chance it's synthetic</span>
+        </div>
+        <p id="bubble-note" class="bubble-note"></p>
+        <div id="bubble-actions" class="bubble-actions" hidden>
+          <button id="see-evidence" class="btn btn-yes" type="button">See the evidence</button>
+          <button id="again" class="btn" type="button">Check another</button>
+        </div>
+      </div>
+      <canvas id="stage" class="stage" width="320" height="480" tabindex="0" role="button"
+        aria-label="The wizard. Click to choose an audio file, or drop one here."></canvas>
+    </div>
+  </section>
+
+  <section id="report" class="report" hidden aria-labelledby="report-title">
+    <div class="card">
+      <div class="report-head">
+        <div>
+          <p class="eyebrow">Evidence report</p>
+          <h2 id="report-title"></h2>
+          <p id="report-file" class="muted"></p>
+        </div>
+        <span id="mock-badge" class="badge badge-mock" hidden>Demo data: no detection model connected</span>
+      </div>
+
+      <div class="meter-wrap">
+        <div class="meter-num"><span id="meter-pct"></span><small>chance it's synthetic</small></div>
+        <div class="meter" role="img" id="meter" aria-label="">
+          <span class="band band-real"><span class="long">likely real</span><span class="short">real</span></span>
+          <span class="band band-unsure"><span class="long">inconclusive</span><span class="short">unsure</span></span>
+          <span class="band band-synth"><span class="long">likely synthetic</span><span class="short">synthetic</span></span>
+          <span id="meter-mark" class="meter-mark"></span>
+        </div>
+        <div class="meter-scale"><span>0%</span><span>25%</span><span>75%</span><span>100%</span></div>
+        <p class="muted small">Between 25% and 75% the wizard won't call it either way.</p>
+      </div>
+
+      <p id="channel" class="callout" hidden></p>
+
+      <h3>Over time</h3>
+      <p class="muted small">The neural detector on each 4-second window (up to the first 12 s).</p>
+      <div id="timeline" class="timeline"></div>
+
+      <h3>What each technique found</h3>
+      <p class="muted small">Techniques that <em>vote</em> move the score; <em>evidence</em> techniques explain it but never change it.</p>
+      <ul id="techniques" class="techniques"></ul>
+
+      <dl class="facts">
+        <div><dt>Type of manipulation</dt><dd id="manipulation">unknown</dd></div>
+        <div><dt>Clip</dt><dd id="clip-facts"></dd></div>
+        <div><dt>Model</dt><dd id="model-facts"></dd></div>
+      </dl>
+
+      <div id="transcript-wrap" hidden>
+        <h3>Transcript</h3>
+        <blockquote id="transcript" class="transcript"></blockquote>
+      </div>
+
+      <h3>What this can't tell you</h3>
+      <ul id="limits" class="limits"></ul>
+
+      <div class="report-actions">
+        <button id="again-2" class="btn btn-yes" type="button">Check another clip</button>
+        <a class="btn" href="#learn">How do these scams work?</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="learn" class="learn" aria-labelledby="learn-title">
+    <h2 id="learn-title">Learn the tricks</h2>
+    <p class="muted">Voice-cloning scams are rising. A few minutes here can protect you and the people you love.</p>
+    <div id="lessons" class="lessons"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p><strong>Team Gemini</strong> · HackGT 13 · Also a desktop wizard that checks your calls.</p>
+  <p class="muted small">A likelihood, not proof. Non-commercial research demo.</p>
+</footer>
+
+<script src="/shared/sprites.js"></script>
+<script src="/shared/magic.js"></script>
+<script src="/shared/voice.js"></script>
+<script src="/shared/lessons.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -171,3 +171,23 @@ def test_hf_load_error_is_reported(monkeypatch: pytest.MonkeyPatch):
     m._load_hf()
     body = client.get("/health").json()
     assert body["mock"] is True and "org/model" in body["load_error"]
+
+
+def test_web_analyze_needs_no_key_and_keeps_no_history(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("API_KEY", "secret")
+    monkeypatch.setattr("app.main._WEB_HITS", {})
+    r = client.post("/web/analyze", files=FILE)
+    assert r.status_code == 200 and r.json()["overall"]["verdict"]
+    assert client.post("/web/analyze").json()["error"] == "bad_request"  # a file is required
+
+
+def test_web_analyze_rate_limited_per_ip(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("app.main.WEB_CHECKS_PER_HOUR", 2)
+    monkeypatch.setattr("app.main._WEB_HITS", {})
+    a = {"X-Forwarded-For": "203.0.113.1"}
+    assert client.post("/web/analyze", files=FILE, headers=a).status_code == 200
+    assert client.post("/web/analyze", files=FILE, headers=a).status_code == 200
+    r = client.post("/web/analyze", files=FILE, headers=a)
+    assert r.status_code == 429 and r.json()["error"] == "rate_limited"
+    other = client.post("/web/analyze", files=FILE, headers={"X-Forwarded-For": "203.0.113.2"})
+    assert other.status_code == 200

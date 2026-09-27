@@ -8,7 +8,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | `app/`, `demo/caller/` | Wizard app: file check, call listen (real capture → server), demo caller rig | david-frontend | weights on the server for real scores |
-| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | hocuspocus.tech on Vultr DNS, `web/` site (then a web upload app) | israel/domain | nameservers at get.tech |
+| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server`, `web/` | Website at hocuspocus.tech: the wizard's file check + evidence report in a browser | israel/web-app | |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
@@ -19,6 +19,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - NSA submission: interim (v4p6) rated minDCF 0.258 / EER 10.2%; final TSV from v5c (sha256 048b2a2e…). NSA keeps the better of the two.
 
 ## Requests (changes needed outside your own directory)
+- Israel → Akash, David: approve INTERFACES.md 0.7 (`POST /web/analyze`, public + rate-limited) and the website decision in DECISIONS.md. David: the site now serves `app/Assets/` and `app/src/renderer/{sprites,magic,voice,lessons}.js` read-only, so keep those four scripts free of Electron-only calls (`window.wizard`) · israel/web-app
 - David → Akash: approve INTERFACES.md 0.2 (IPC section rewritten to match the app) and the call-watch decision in DECISIONS.md.
 - Israel → David: review the `app/` part of israel/app-server-link (`src/main/analyzer.js`, new `src/main/config.js`, two lines in `main.js`).
 - Israel → Akash, David: approve INTERFACES.md 0.4 and the install-id decision in DECISIONS.md.
@@ -39,6 +40,7 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sun 01:30 · Israel (Claude) · web: hocuspocus.tech is the wizard's file check in a browser (drop/pick a file → verdict bubble with voice lines → evidence report; wizard/witch, 2D/3D; Learn lessons). Reuses app/Assets and 4 renderer scripts via Caddy mounts (no copies). server: public `POST /web/analyze` (no key, no history, 30/hour per IP, 429 `rate_limited`); INTERFACES 0.7. Tested locally with the mock server + headless Chrome (desktop + phone widths); not yet deployed · israel/web-app
 - Sat 23:30 · Israel (Claude) · infra: Vultr hosts DNS for hocuspocus.tech (`infra/vultr/dns.tf`: apex, www, api A records to the server, TTL 300); apex + www serve the static site in `web/` ("Team Gemini" placeholder), api + sslip.io reach the API, Caddy reloads on deploy (web/ changes deploy too); `base_url` = https://api.hocuspocus.tech. Needs an infra apply + nameservers ns1/ns2.vultr.com at get.tech · israel/domain
 - Sat 23:10 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept main's INTERFACES 0.6, HF stand-in and app decisions; hearsay/ from the branch) · PR #20
 - Sat 23:08 · Akash (Claude) · CodeRabbit round 1: AGENTS.md model facts now v5c/nn; cli logs the effective profile; strict fusion zip; tolerant HEARSAY_EXPLAIN; ml/ script fixes (ledger header, rerun guards, left joins, stable subsample, curl failures, HF token off the command line) · PR #20

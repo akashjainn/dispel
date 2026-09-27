@@ -15,6 +15,7 @@ import random
 import threading
 import time
 import uuid
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -25,12 +26,13 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import store
 
-VERSION = "0.6"
+VERSION = "0.7"
 # Anything ffmpeg can decode; video containers keep only their audio track.
 ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".webm", ".ogg", ".oga", ".opus", ".flac", ".aac", ".mp4", ".mov"}
 SOURCES = {"file", "call"}
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 25 * 1024 * 1024))
 EXAMPLE = Path(__file__).resolve().parents[2] / "docs" / "examples" / "analyze_response.example.json"
+WEB_CHECKS_PER_HOUR = int(os.getenv("WEB_CHECKS_PER_HOUR", 30))  # per client IP, public website only
 MOCK_SYNTHETIC_SHARE = 0.7  # demo answers only: share that come out likely synthetic, the rest likely real
 log = logging.getLogger("dispel")
 
@@ -132,6 +134,26 @@ def client_id(x_dispel_client: str | None = Header(default=None)) -> str | None:
         raise ApiError(400, "bad_request", "X-Dispel-Client must be a UUID")
 
 
+_WEB_HITS: dict[str, deque] = {}  # client IP -> times of its recent website checks
+
+
+def web_rate_limit(request: Request) -> None:
+    """The public website has no key, so it gets a per-IP budget instead. Caddy overwrites X-Forwarded-For with
+    the address it saw (clients can't spoof it); without Caddy (dev, tests) the socket's peer is used."""
+    ip = (request.headers.get("x-forwarded-for") or "").split(",")[-1].strip()
+    ip = ip or (request.client.host if request.client else "unknown")
+    now = time.monotonic()
+    if len(_WEB_HITS) > 10_000:  # forget idle addresses so the table stays small
+        for k in [k for k, q in _WEB_HITS.items() if not q or now - q[-1] > 3600]:
+            del _WEB_HITS[k]
+    q = _WEB_HITS.setdefault(ip, deque())
+    while q and now - q[0] > 3600:
+        q.popleft()
+    if len(q) >= WEB_CHECKS_PER_HOUR:
+        raise ApiError(429, "rate_limited", "too many checks from this address; try again in a while")
+    q.append(now)
+
+
 def _weights_present() -> bool:
     d = _model_dir()  # lost+found etc.: a freshly formatted volume is not "weights found"
     return bool(d) and d.is_dir() and any(p.name != "lost+found" and not p.name.startswith(".") for p in d.iterdir())
@@ -175,6 +197,15 @@ async def analyze(file: UploadFile | None = File(None), prior: float = Form(0.5)
         except Exception:  # history is a convenience; never fail a check over it
             log.exception("could not record check")
     return resp
+
+
+@app.post("/web/analyze", dependencies=[Depends(web_rate_limit)])
+async def web_analyze(file: UploadFile | None = File(None), prior: float = Form(0.5)):
+    """File checks from the public website (hocuspocus.tech, web/): no key and no install id, so nothing is
+    recorded in history; limited to WEB_CHECKS_PER_HOUR per client IP."""
+    if file is None:
+        raise ApiError(400, "bad_request", "file is required")
+    return await _analyze(file, prior, "file")
 
 
 @app.get("/history", dependencies=[Depends(require_key)])

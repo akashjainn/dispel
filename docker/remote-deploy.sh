@@ -12,11 +12,42 @@ domain=$(sed -n 's/^DOMAIN=//p' .env)
 domain=${domain:-hocuspocus.tech}
 ip=$(curl -fsS -m 5 http://169.254.169.254/v1/interfaces/0/ipv4/address)
 host=$(echo "$ip" | tr . -).sslip.io
-# The apex and www serve the static site in web/ (mounted at /srv/web); api and sslip.io reach the API server.
+# The apex serves the website in web/ (www redirects to it); api and sslip.io reach the API server. The website reuses
+# the desktop app's art, voice lines and sprite scripts straight from app/ (read-only mounts, see compose.prod.yml),
+# and only its file check (POST /web/analyze, no key, limited per IP) and /health reach the server.
 cat > Caddyfile <<EOF
-$domain, www.$domain {
-  root * /srv/web
-  file_server
+www.$domain {
+  redir https://$domain{uri} permanent
+}
+$domain {
+  encode gzip
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+  }
+  handle /web/analyze {
+    request_body {
+      max_size 26MB
+    }
+    reverse_proxy server:8765
+  }
+  handle /health {
+    reverse_proxy server:8765
+  }
+  handle_path /Assets/* {
+    root * /srv/app/Assets
+    file_server
+  }
+  @shared path /shared/sprites.js /shared/magic.js /shared/voice.js /shared/lessons.js
+  handle @shared {
+    uri strip_prefix /shared
+    root * /srv/app/src/renderer
+    file_server
+  }
+  handle {
+    root * /srv/web
+    file_server
+  }
 }
 $host, api.$domain {
   reverse_proxy server:8765
