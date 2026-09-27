@@ -44,6 +44,9 @@ def main():
     ap.add_argument("--real", type=Path, required=True, help="folder with the speaker's 01..10 recordings")
     ap.add_argument("--out", type=Path, required=True, help="output folder (outside the repo)")
     ap.add_argument("--speaker", required=True)
+    ap.add_argument("--tag", default="f5", help="filename tag, e.g. f5b for a variant run")
+    ap.add_argument("--ref-offset", type=int, default=1, help="voice reference = sentences N+k, N+k+1")
+    ap.add_argument("--speed", type=float, default=1.0, help="speaking rate (variant)")
     ap.add_argument("--fake-codec", choices=["aac128"], help="give fakes the real side's lossy codec")
     args = ap.parse_args()
 
@@ -65,24 +68,24 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         for i, text in enumerate(sentences, start=1):
             nn = f"{i:02d}"
-            refs = [((i - 1 + k) % n) + 1 for k in (1, 2)]  # sentences N+1, N+2 (wrapping)
+            refs = [((i - 1 + k) % n) + 1 for k in (args.ref_offset, args.ref_offset + 1)]  # sentences N+k, N+k+1 (wrapping)
             ref_files = [recordings.get(f"{r:02d}") for r in refs]
             if recordings.get(nn) is None or None in ref_files:
                 print(f"[{nn}] missing real sentence {nn} or its references {refs}, skipping")
                 continue
-            dst = out / "fake" / f"{args.speaker}_f5_{nn}.wav"
+            dst = out / "fake" / f"{args.speaker}_{args.tag}_{nn}.wav"
             if not dst.exists():
                 ref = Path(tmp) / f"ref_{nn}.wav"
                 trimmed_ref(ref_files, ref)
                 ref_text = " ".join(sentences[r - 1] for r in refs)
                 raw = Path(tmp) / f"gen_{nn}.wav"
-                tts.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, file_wave=str(raw),
+                tts.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, file_wave=str(raw), speed=args.speed,
                           seed=i, show_info=lambda *a, **k: None)
                 if args.fake_codec:
                     aac_roundtrip(raw, dst, "128k")
                 else:
                     to_wav(raw, dst)
-            source = f"f5tts:{MODEL}" + (f"+{args.fake_codec}" if args.fake_codec else "")
+            source = f"f5tts:{MODEL}" + (f"@speed{args.speed}" if args.speed != 1.0 else "") + (f"@ref+{args.ref_offset}" if args.ref_offset != 1 else "") + (f"+{args.fake_codec}" if args.fake_codec else "")
             rows.append((dst.name, "spoof", nn, source, f"{duration_s(dst):.2f}", text))
             print(f"[{nn}] fake  {dst.name}  (voice from real sentences {refs})")
 

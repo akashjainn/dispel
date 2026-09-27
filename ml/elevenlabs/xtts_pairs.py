@@ -1,23 +1,24 @@
-"""Clone a speaker with Chatterbox (Resemble AI, open source, runs locally) reading sentences.txt.
+"""Clone a speaker with XTTS-v2 (Coqui, open source, runs locally) reading sentences.txt.
 
 Usage (own environment, outside the repo; see "Setup"):
-    ~/voice/cbenv/bin/python ml/elevenlabs/chatterbox_pairs.py --real ~/voice/anirudh/real \
-        --out ~/voice/anirudh/set_cb --speaker anirudh
+    ~/voice/xttsenv/bin/python ml/elevenlabs/xtts_pairs.py --real ~/voice/anirudh/real \
+        --out ~/voice/anirudh/set_xtts --speaker anirudh
 
-No training: Chatterbox is a pretrained zero-shot cloner. Same reference scheme as f5_pairs.py:
-for sentence N the voice prompt is the speaker's real sentences N+1 and N+2 (edge silence trimmed,
-joined), so the clone never hears the sentence it fakes. Writes only fakes (<speaker>_cb_NN.wav,
-16 kHz mono) and a manifest. --fake-codec aac128 for speakers recorded lossy.
+No training: XTTS-v2 is a pretrained zero-shot cloner. Same reference scheme as f5_pairs.py: for
+sentence N the voice reference is the speaker's real sentences N+k and N+k+1 (default k=1; edge
+silence trimmed, joined), so the clone never hears the sentence it fakes. Writes only fakes
+(<speaker>_xtts_NN.wav, 16 kHz mono) and a manifest. --fake-codec aac128 for lossy recordings.
+XTTS-v2 is also a DiffSSD generator (older voices), so the detector has seen its style before.
 
-Chatterbox adds Resemble's inaudible PerTh watermark to every output (left in: it is a safety
-feature). Label: chatterbox:ResembleAI/chatterbox. Mix with unwatermarked fakes (F5) when training
-so "watermark = fake" can't become a shortcut.
-
-Setup (about 4 GB, once): python3.11 -m venv ~/voice/cbenv && ~/voice/cbenv/bin/pip install chatterbox-tts
-Weights: ResembleAI/chatterbox, MIT.
+Setup (about 3 GB, once):
+    python3.11 -m venv ~/voice/xttsenv
+    ~/voice/xttsenv/bin/pip install "coqui-tts[codec]" "transformers>=4.52,<4.58" "setuptools<81" torch torchaudio
+Weights: coqui/XTTS-v2 under the Coqui Public Model License (non-commercial); running this script
+accepts it (COQUI_TOS_AGREED=1).
 """
 
 import argparse
+import os
 import sys
 import tempfile
 import wave
@@ -26,16 +27,17 @@ from pathlib import Path
 from f5_pairs import trimmed_ref
 from make_pairs import HERE, aac_roundtrip, duration_s, to_wav
 
-MODEL = "ResembleAI/chatterbox"
+MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
+SR = 24000
 
 
-def write_wav(samples, sr: int, dst: Path):
+def write_wav(samples, dst: Path):
     import numpy as np
-    pcm = (np.clip(samples, -1, 1) * 32767).astype("<i2")
+    pcm = (np.clip(np.asarray(samples, dtype="float32"), -1, 1) * 32767).astype("<i2")
     with wave.open(str(dst), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
-        w.setframerate(sr)
+        w.setframerate(SR)
         w.writeframes(pcm.tobytes())
 
 
@@ -44,12 +46,10 @@ def main():
     ap.add_argument("--real", type=Path, required=True, help="folder with the speaker's 01..10 recordings")
     ap.add_argument("--out", type=Path, required=True, help="output folder (outside the repo)")
     ap.add_argument("--speaker", required=True)
-    ap.add_argument("--tag", default="cb", help="filename tag, e.g. cbb for a variant run")
+    ap.add_argument("--tag", default="xtts", help="filename tag")
     ap.add_argument("--ref-offset", type=int, default=1, help="voice reference = sentences N+k, N+k+1")
-    ap.add_argument("--exaggeration", type=float, default=0.5, help="expressiveness (variant)")
-    ap.add_argument("--cfg-weight", type=float, default=0.5, help="pacing/guidance (variant)")
     ap.add_argument("--fake-codec", choices=["aac128"], help="give fakes the real side's lossy codec")
-    ap.add_argument("--device", default="mps", help="mps (Apple GPU) or cpu")
+    ap.add_argument("--device", default="cpu", help="cpu (reliable for XTTS on Mac) or mps")
     args = ap.parse_args()
 
     out = args.out.expanduser().resolve()
@@ -62,16 +62,17 @@ def main():
                   if p.is_file() and not p.name.startswith(".")}
     n = len(sentences)
 
+    os.environ.setdefault("COQUI_TOS_AGREED", "1")
     import torch
-    from chatterbox.tts import ChatterboxTTS  # slow import; after argument checks
-    tts = ChatterboxTTS.from_pretrained(device=args.device)
+    from TTS.api import TTS  # slow import; after argument checks
+    tts = TTS(MODEL).to(args.device)
     (out / "fake").mkdir(parents=True, exist_ok=True)
     rows = []
 
     with tempfile.TemporaryDirectory() as tmp:
         for i, text in enumerate(sentences, start=1):
             nn = f"{i:02d}"
-            refs = [((i - 1 + k) % n) + 1 for k in (args.ref_offset, args.ref_offset + 1)]  # sentences N+k, N+k+1 (wrapping)
+            refs = [((i - 1 + k) % n) + 1 for k in (args.ref_offset, args.ref_offset + 1)]
             ref_files = [recordings.get(f"{r:02d}") for r in refs]
             if recordings.get(nn) is None or None in ref_files:
                 print(f"[{nn}] missing real sentence {nn} or its references {refs}, skipping")
@@ -81,14 +82,15 @@ def main():
                 ref = Path(tmp) / f"ref_{nn}.wav"
                 trimmed_ref(ref_files, ref)
                 torch.manual_seed(i)
-                wav = tts.generate(text, audio_prompt_path=str(ref), exaggeration=args.exaggeration, cfg_weight=args.cfg_weight)
+                wav = tts.tts(text=text, speaker_wav=str(ref), language="en", split_sentences=False)
                 raw = Path(tmp) / f"gen_{nn}.wav"
-                write_wav(wav.squeeze(0).cpu().numpy(), tts.sr, raw)
+                write_wav(wav, raw)
                 if args.fake_codec:
                     aac_roundtrip(raw, dst, "128k")
                 else:
                     to_wav(raw, dst)
-            source = (f"chatterbox:{MODEL}@exag{args.exaggeration}@cfg{args.cfg_weight}" if (args.exaggeration, args.cfg_weight) != (0.5, 0.5) else f"chatterbox:{MODEL}") + (f"@ref+{args.ref_offset}" if args.ref_offset != 1 else "") + (f"+{args.fake_codec}" if args.fake_codec else "")
+            source = "xtts:coqui/XTTS-v2" + (f"@ref+{args.ref_offset}" if args.ref_offset != 1 else "") \
+                + (f"+{args.fake_codec}" if args.fake_codec else "")
             rows.append((dst.name, "spoof", nn, source, f"{duration_s(dst):.2f}", text))
             print(f"[{nn}] fake  {dst.name}  (voice from real sentences {refs})")
 
