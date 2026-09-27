@@ -71,7 +71,8 @@ ssh root@<ip> 'cd /opt/dispel && docker compose -f compose.prod.yml restart serv
 
 ## Domain (hocuspocus.tech)
 Registered at get.tech; Vultr hosts the DNS (`dns.tf`): `hocuspocus.tech`, `www` and `api` are A records to the server's
-IP (TTL 300), and they follow the server through a `replace_server`. `base_url` is `https://api.hocuspocus.tech`.
+IP (TTL 300), and they follow the server through a `replace_server`. The apex and `www` serve the static site in `web/`;
+`api.` (and the sslip.io name) reach the API server. `base_url` is `https://api.hocuspocus.tech`.
 1. Actions -> infra -> Run workflow -> `apply` (creates the zone and records; no server change).
 2. At get.tech: DNS -> Nameservers -> Edit nameservers -> `ns1.vultr.com`, `ns2.vultr.com` (remove the orderbox ones).
 3. Wait for it: `dig +short NS hocuspocus.tech` shows Vultr, `dig +short api.hocuspocus.tech` shows the IP.

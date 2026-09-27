@@ -8,7 +8,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | `app/`, `demo/caller/` | Wizard app: file check, call listen (real capture → server), demo caller rig | david-frontend | weights on the server for real scores |
-| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | hocuspocus.tech on Vultr DNS (then a web upload app) | israel/domain | nameservers at get.tech |
+| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | hocuspocus.tech on Vultr DNS, `web/` site (then a web upload app) | israel/domain | nameservers at get.tech |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
@@ -39,7 +39,7 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
-- Sat 23:30 · Israel (Claude) · infra: Vultr hosts DNS for hocuspocus.tech (`infra/vultr/dns.tf`: apex, www, api A records to the server, TTL 300); Caddy serves those three next to the sslip.io name and reloads on deploy; `base_url` = https://api.hocuspocus.tech. Needs an infra apply + nameservers ns1/ns2.vultr.com at get.tech · israel/domain
+- Sat 23:30 · Israel (Claude) · infra: Vultr hosts DNS for hocuspocus.tech (`infra/vultr/dns.tf`: apex, www, api A records to the server, TTL 300); apex + www serve the static site in `web/` ("Team Gemini" placeholder), api + sslip.io reach the API, Caddy reloads on deploy (web/ changes deploy too); `base_url` = https://api.hocuspocus.tech. Needs an infra apply + nameservers ns1/ns2.vultr.com at get.tech · israel/domain
 - Sat 23:10 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept main's INTERFACES 0.6, HF stand-in and app decisions; hearsay/ from the branch) · PR #20
 - Sat 23:08 · Akash (Claude) · CodeRabbit round 1: AGENTS.md model facts now v5c/nn; cli logs the effective profile; strict fusion zip; tolerant HEARSAY_EXPLAIN; ml/ script fixes (ledger header, rerun guards, left joins, stable subsample, curl failures, HF token off the command line) · PR #20
 - Sat 22:45 · Akash (Claude) · docs/ARCHITECTURE.md (scoring + training diagrams), README results and figure, DECISIONS for interim/final; v5c release live on Vultr (`/health`: v5c, weights_found true) · PR #20

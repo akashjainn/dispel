@@ -12,8 +12,19 @@ domain=$(sed -n 's/^DOMAIN=//p' .env)
 domain=${domain:-hocuspocus.tech}
 ip=$(curl -fsS -m 5 http://169.254.169.254/v1/interfaces/0/ipv4/address)
 host=$(echo "$ip" | tr . -).sslip.io
-sites="$host, $domain, www.$domain, api.$domain"
-printf '%s {\n  reverse_proxy server:8765\n  request_body {\n    max_size 26MB\n  }\n}\n' "$sites" > Caddyfile
+# The apex and www serve the static site in web/ (mounted at /srv/web); api and sslip.io reach the API server.
+cat > Caddyfile <<EOF
+$domain, www.$domain {
+  root * /srv/web
+  file_server
+}
+$host, api.$domain {
+  reverse_proxy server:8765
+  request_body {
+    max_size 26MB
+  }
+}
+EOF
 
 # Refuse to run without the persistent volume: weights copied to the local disk would be wiped by a server replacement.
 # The containers already running are left alone. Fix: check the volume is attached, then Actions -> infra -> replace_server.
