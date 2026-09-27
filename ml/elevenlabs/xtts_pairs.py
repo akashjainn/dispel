@@ -18,6 +18,7 @@ accepts it (COQUI_TOS_AGREED=1).
 """
 
 import argparse
+import json
 import os
 import sys
 import tempfile
@@ -61,6 +62,8 @@ def main():
     recordings = {p.stem: p for p in args.real.expanduser().iterdir()
                   if p.is_file() and not p.name.startswith(".")}
     n = len(sentences)
+    if not 1 <= args.ref_offset <= n - 2:  # both reference sentences must differ from sentence N
+        sys.exit(f"--ref-offset must be between 1 and {n - 2}")
 
     os.environ.setdefault("COQUI_TOS_AGREED", "1")
     import torch
@@ -78,7 +81,13 @@ def main():
                 print(f"[{nn}] missing real sentence {nn} or its references {refs}, skipping")
                 continue
             dst = out / "fake" / f"{args.speaker}_{args.tag}_{nn}.wav"
-            if not dst.exists():
+            # Reuse an existing clip only if it was made with these settings (clips from before this
+            # sidecar existed have none and are reused).
+            meta = dst.with_suffix(".json")
+            settings = {"model": MODEL, "text": text, "ref_offset": args.ref_offset, "fake_codec": args.fake_codec}
+            stale = meta.exists() and json.loads(meta.read_text()) != settings
+            if not dst.exists() or stale:
+                meta.write_text(json.dumps(settings))
                 ref = Path(tmp) / f"ref_{nn}.wav"
                 trimmed_ref(ref_files, ref)
                 torch.manual_seed(i)
