@@ -61,3 +61,36 @@
 - **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
   v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
   (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
+- **Sat 17:30. Notify a contact (David, app):** on a flagged call the wizard offers "Notify trusted
+  contact" (personal) or "Notify my manager" (work), chosen in the app's Settings. It sends a text
+  from the user's own Mac through Messages (iMessage, else SMS relay), only when the user presses
+  the button. Nothing goes through our server; the contact's name and number stay in the app's
+  local settings file. The text says "likely AI-generated" with the score, never that the caller
+  is certainly fake, and marks mock results as a test.
+- **Sat 18:15. Real call checks, on request only (David, app):** calls are no longer scored automatically. When a
+  call starts the wizard offers to listen; only "Listen" (or the tray item, or ⌘⇧L) records, for 12 s. It taps the
+  call app's audio **output** (the other person, not the user's mic) with a Core Audio process tap
+  (`app/native/callcapture.swift`, macOS 14.2+, "System Audio Recording" permission). If that app isn't playing sound
+  itself (e.g. its audio runs in a WebKit process), it taps all system audio except Dispel and logs that. The WAV goes to
+  our server as `source=call` and is deleted from a temp folder right after. A silent capture is reported as "couldn't
+  hear anything", never scored.
+- **Sat 18:15. Demo caller rig (David, `demo/caller/`):** an iPhone web page tells a second "caller" laptop to dial the
+  judge's laptop (Teams/FaceTime links; Discord by hand), play a prepared clip into BlackHole as the call's mic, and
+  optionally switch OBS to a matching deepfake video. Demo prop only; not part of the product or the server. Clips are
+  gitignored. Voices must be consented clones or published dataset clips, not new deepfakes of real public figures.
+- **Sat 18:45. Call checks: one-time opt-in (David, app; supersedes "on request only" above):** on the first detected
+  call the wizard asks once, "Check my calls automatically?". "Yes, always" saves `autoCheckCalls: true` and from then
+  on every call is checked as it starts (12 s, "Listening…" bubble shown while recording, clip deleted after the
+  server answers). "Only when I ask" saves false: checks only from the tray or ⌘⇧L. Closing the bubble leaves it
+  unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.
+- **Sat 20:20. Hugging Face stand-in model (proposed by Israel, needs Akash's OK):** while `MODEL_DIR` has no `hearsay.json`,
+  the server answers with a third-party open detector instead of demo data: `mo-thecreator/Deepfake-audio-detection`
+  (wav2vec2-base, Apache-2.0) pinned to commit `e4d9874b493362149cec96ced85f00b00b1a04c0` (`HF_MODEL`/`HF_REVISION` in
+  `docker/compose.prod.yml`). Order: hearsay release > HF stand-in > mock. Weights are downloaded once into
+  `/opt/dispel/data/hf`; inference runs on our server, so audio is never sent to Hugging Face. Scored with hearsay's
+  windowing (up to 3 x 4 s), window LLR = logit[fake] - logit[real], mean over windows, capped at +/-ln(100); same
+  0.25/0.75 band. Check run (`server/tools/score_folder.py`): 8 LibriSpeech clean clips vs 6 macOS `say` TTS clips:
+  fakes 6/6 likely_synthetic; reals 6 likely_real, 1 inconclusive, 1 likely_synthetic; AUC 1.000. Rejected on the same
+  clips: `MelodyMachine/Deepfake-audio-detection-V2` (called all 6 TTS clips real at p ~ 1e-5, also through the stock HF
+  pipeline) and `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (ranked well but 4 of 8 reals >= 0.75, and
+  3-4x slower on CPU). Not yet checked on ElevenLabs clones or phone audio. (israel/hf-model)

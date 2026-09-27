@@ -9,6 +9,11 @@ services:
       - path: /opt/dispel/.env
     environment:
       DATA_DIR: /var/lib/dispel
+      # Stand-in detector while MODEL_DIR has no hearsay.json (server/app/hf_model.py). Weights are fetched once into
+      # HF_HOME on the data volume; audio is scored here and never sent to Hugging Face.
+      HF_MODEL: mo-thecreator/Deepfake-audio-detection
+      HF_REVISION: e4d9874b493362149cec96ced85f00b00b1a04c0
+      HF_HOME: /var/lib/dispel/hf
     volumes:
       - /opt/dispel/models:/models:ro # the persistent Vultr volume, holds the model weights
       - /opt/dispel/data:/var/lib/dispel # check history (server/app/store.py); survives redeploys, not a server replacement

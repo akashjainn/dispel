@@ -1,0 +1,157 @@
+:root {
+  --ink: #2a1740;
+  --paper: #fffaf0;
+  --purple: #6b3fa0;
+  --line: rgba(42, 23, 64, 0.18);
+  --ok: #2e7d32;
+  --bad: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f1e9ff;
+    --paper: #1d1528;
+    --purple: #b98cf5;
+    --line: rgba(241, 233, 255, 0.2);
+    --ok: #7bd389;
+    --bad: #ff8a7a;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+}
+body {
+  padding: 22px 24px;
+}
+h1 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+section {
+  margin-bottom: 18px;
+}
+.hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+
+.segmented {
+  display: flex;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.segmented label {
+  flex: 1;
+  position: relative;
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+}
+.segmented span {
+  display: block;
+  padding: 8px 0;
+  text-align: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+.segmented input:checked + span {
+  background: var(--purple);
+  color: #fff;
+}
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--purple);
+  outline-offset: -4px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.field input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--purple);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--purple);
+}
+
+.status {
+  min-height: 1.4em;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.status.ok {
+  color: var(--ok);
+}
+.status.bad {
+  color: var(--bad);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

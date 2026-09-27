@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Caller" />
+    <meta name="theme-color" content="#14111f" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Caller rig</title>
+  </head>
+  <body>
+    <header>
+      <h1>Caller rig</h1>
+      <p class="sub">Dispel demo · plays prepared clips into a call</p>
+    </header>
+
+    <p id="auth" class="banner" hidden>Open the link printed by <code>npm start</code> (it has the token).</p>
+
+    <section>
+      <h2>1 · Call on</h2>
+      <div id="platforms" class="seg"></div>
+      <label id="video-row" class="toggle" hidden><input id="video" type="checkbox" /> Video (OBS camera)</label>
+      <div class="row">
+        <button id="dial" class="btn primary">Call</button>
+        <button id="hangup" class="btn">Hang up</button>
+      </div>
+      <p id="platform-note" class="note"></p>
+    </section>
+
+    <section>
+      <h2>2 · Caller says</h2>
+      <div id="callers" class="cards"></div>
+      <button id="stop" class="btn danger wide">Stop</button>
+    </section>
+
+    <p id="status" class="status">Loading…</p>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -6,8 +6,11 @@
 // the window server for the on-screen bounds of the matching app's windows.
 // Neither call needs the Microphone or Screen Recording permission.
 //
-// Output: {"active":bool,"app":str|null,"bundle":str|null,"canEnd":bool,
+// Output: {"active":bool,"app":str|null,"bundle":str|null,"prefixes":[str],"canEnd":bool,"front":bool,
 //          "bounds":{"x":n,"y":n,"width":n,"height":n}|null}
+// prefixes: the app's bundle-ID prefixes, which callcapture uses to tap its audio.
+// front: the call app owns the frontmost normal window (our own windows and
+// dialogs, owned by the parent Electron process, are skipped).
 //
 // Input (one command per line on stdin):
 //   end [name]  politely quits the call app (like Cmd+Q), which hangs up.
@@ -118,12 +121,31 @@ func currentCall() -> (CallApp, String)? {
     return nil
 }
 
+/// Owner name of the frontmost normal (layer 0) window, skipping our parent
+/// (the Electron app), so clicking the wizard doesn't count as leaving the call.
+func frontmostOwner() -> String? {
+    guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]] else { return nil }
+    let me = getppid()
+    for w in list { // front to back
+        guard (w[kCGWindowLayer as String] as? Int) == 0,
+              (w[kCGWindowOwnerPID as String] as? Int32) != me,
+              let dict = w[kCGWindowBounds as String] as? NSDictionary,
+              let rect = CGRect(dictionaryRepresentation: dict),
+              rect.width >= 50, rect.height >= 50 else { continue }
+        return w[kCGWindowOwnerName as String] as? String
+    }
+    return nil
+}
+
 func snapshot() -> [String: Any] {
     guard let (app, bundle) = currentCall() else {
-        return ["active": false, "app": NSNull(), "bundle": NSNull(), "canEnd": false, "bounds": NSNull()]
+        return ["active": false, "app": NSNull(), "bundle": NSNull(), "prefixes": [String](), "canEnd": false, "front": false,
+                "bounds": NSNull()]
     }
-    var out: [String: Any] = ["active": true, "app": app.name, "bundle": bundle,
-                              "canEnd": !app.quitBundles.isEmpty, "bounds": NSNull()]
+    let front = frontmostOwner().map { app.windowOwners.contains($0) } ?? false
+    var out: [String: Any] = ["active": true, "app": app.name, "bundle": bundle, "prefixes": app.bundlePrefixes,
+                              "canEnd": !app.quitBundles.isEmpty, "front": front, "bounds": NSNull()]
     if let r = mainWindowBounds(owners: app.windowOwners) {
         out["bounds"] = ["x": Int(r.minX), "y": Int(r.minY), "width": Int(r.width), "height": Int(r.height)]
     }
