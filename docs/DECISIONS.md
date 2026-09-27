@@ -61,3 +61,35 @@
 - **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
   v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
   (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
+- **Sat 16:10. Interim submission:** `HearsayScoreKey4Gemini.tsv` from release v4p6 (profile `nsa`), sha256
+  05adaf1e…. NSA rating: **minDCF 0.258, EER 10.2%** (instructions' metric: 0 = real, 1 = synthetic, P(synthetic) 0.3,
+  false alarm on a real clip costs 4x). Leaderboard of interims: 0.058, 0.075, 0.258 (us), 0.267. NSA keeps the better
+  of interim and final.
+- **Sat 16:30. Diagnosis (no test labels used):** noise and short clips do not explain it (DiffSSD test clips cropped to
+  NSA durations, peak-normalized, noise matched to NSA's noise floor: v4 alone 0.049). On the test set the network calls
+  664 clips synthetic and the fusion 332; the fusion demotes 134 clips the network scores above +10. Same pattern on
+  consenting teammates' ElevenLabs clones: network +2.8, spectral -3.2, prosody -2.0.
+- **Sat 18:40. Final is network-first (supersedes the two fusion profiles for scoring):** new profile `nn` in
+  `hearsay/orchestrator.py`. The neural detector alone sets the score. Prosody, spectral, voice and rhythm still run
+  and are shown as evidence (`role: "evidence"`, llr_contribution 0). Additive change to the response; old profiles kept.
+- **Sat 19:45. NSA hints tested, not used for scoring:** breaths, pauses, harmonic "ribs", start-vs-middle drift
+  (20 features, 2,160 clips, `ml/analysis/features/hint_feats.py`). None points the same way across mic recordings,
+  studio audio, voice changer and DiffSSD. Speaking rate (clones +29% syllables/s on teammates) is app evidence and a
+  reference check only.
+- **Sat 20:00. Isolator-cleaned real speech counts as real** (team decision). Every model flags it (97-100%), so v5c
+  trains on it as real.
+- **Sat 20:00. v5c training data (diversity, NSA's advice):** see README "What we learned" 5; every source keeps a held-out
+  slice, 4 new MLAAD systems are held out entirely, teammates are split by speaker. DiffSSD's test split (80%) is used for
+  training (NSA: fair game); nothing is matched against NSA's test files.
+- **Sat 21:30. NSA's real clips look like VCTK:** v4, AntiDeepfake-1B and MMS-300M all place the test set's low cluster
+  on VCTK reals, not LJ/LibriSpeech. Model selection therefore uses VCTK reals as the main real reference.
+- **Sat 22:30. Final submission: v5c, first epoch (`ep0.pt`), profile `nn` (supersedes v4p6):** chosen on held-out
+  data only (table in README, "How we chose the final system"; diagrams in docs/ARCHITECTURE.md). TSV
+  `HearsayScoreKey4Gemini.tsv` from `HEARSAY_FP32=1 python -m hearsay predict --profile nn`: 1,671 rows, all scores
+  distinct, 32.8% above 0.5, sha256 048b2a2e6778f57e…. Held-out pooled minDCF 0.157, EER 2.86% (v4: 0.191, 4.03%).
+  Known gap: isolator-cleaned real speech (47% flagged at VCTK's 1% false-alarm threshold).
+- **Sat 22:30. Release v5c pins its profile:** `hearsay.json` carries `"profile_override": "nn"` (v3.pt sha256
+  d3defcbd…), so the server scores exactly like the TSV whatever `FUSION_PROFILE` says. The Platt map
+  (LLR = 0.696 s - 2.035, fit on DiffSSD validation) only affects the app's probability, never the ranking.
+- **Sat 22:45. Weights reach Vultr from the team PC** (rsync over SSH to `/opt/dispel/models`). Israel added the PC's
+  key and a firewall rule for its IP for this; both are removed after the event.

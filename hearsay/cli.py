@@ -4,9 +4,9 @@
   python -m hearsay.cli validate <Team>_predictions.tsv --template HearsayScoreKey4TeamX.tsv
 
 With --template, every template row is kept in its order (NSA: never remove rows) and only column 2 changes.
-Header is exactly `filename<TAB>cm-score`, LF line endings, higher score = more likely synthetic.
-Clips that cannot be scored go to the bottom of the ranking (the "real" end), because flagging a
-real clip costs 4x a miss."""
+Header is exactly `filename<TAB>cm-score`, LF line endings, higher score = more likely synthetic (NSA instructions:
+0.0 = confident real, 1.0 = confident synthetic). Clips that cannot be scored go to the bottom of the ranking (the
+"real" end), because flagging a real clip costs 4x a miss."""
 import argparse
 import csv
 import math
@@ -80,7 +80,7 @@ def predict(a):
     from .orchestrator import Pipeline
     d = Path(a.audio_dir)
     names = read_template(a.template) if a.template else sorted(p.name for p in d.iterdir() if p.suffix.lower() in AUDIO)
-    pipe = Pipeline(a.model_dir, profile=a.profile)
+    pipe = Pipeline(a.model_dir, profile=a.profile, explain=False)  # TSV: score only, no display-only analyzers
     scores, failed, t0 = {}, [], time.time()
     for i, n in enumerate(names, 1):
         p = d / n
@@ -107,7 +107,7 @@ def main():
     p.add_argument("-o", "--out", required=True)
     p.add_argument("--template")
     p.add_argument("--model-dir", default=os.getenv("MODEL_DIR", "/models"))
-    p.add_argument("--profile", default="nsa", choices=["nsa", "app"])
+    p.add_argument("--profile", default="nsa", choices=["nsa", "app", "nn"])
     v = sub.add_parser("validate")
     v.add_argument("tsv")
     v.add_argument("--template")

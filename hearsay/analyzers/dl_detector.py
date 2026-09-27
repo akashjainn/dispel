@@ -1,8 +1,8 @@
-"""Deep-learning detector: XLS-R 300M fine-tuned on DiffSSD with noise + time-stretch augmentation (v3).
+"""Deep-learning detector: XLS-R 300M fine-tuned as a binary real/synthetic classifier (v3 -> v4 -> v5c; see docs/ARCHITECTURE.md).
 
 Score s = mean over up to 3 non-overlapping 4 s windows (16 kHz mono; clips < 4 s tile-repeated) of
 logit[synthetic] - logit[real]. This is exactly how the validation scores that fusion was fit on were
-computed (scratch/eval/score_v3.py on the training PC), so do not change the windowing without refitting fusion."""
+computed (scratch/eval/score_v3.py on the training PC), so do not change the windowing without refitting the calibration."""
 import hashlib
 import json
 import os
@@ -71,7 +71,8 @@ class DLDetector:
     @torch.inference_mode()
     def window_scores(self, w):
         x = torch.from_numpy(w).to(self.device)
-        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=self.device == "cuda"):
+        # bf16 on GPU for speed; HEARSAY_FP32=1 gives full precision (used for the NSA TSV: no score ties)
+        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=self.device == "cuda" and os.getenv("HEARSAY_FP32") != "1"):
             lg = self.net(x).float()
         return (lg[:, 1] - lg[:, 0]).cpu().numpy()
 
