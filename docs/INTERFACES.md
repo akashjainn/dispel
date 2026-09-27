@@ -1,4 +1,4 @@
-# INTERFACES: version 0.5 (draft)
+# INTERFACES: version 0.6 (draft)
 
 Change this only through a PR that bumps the version and names the change.
 Both `app/` and `server/` code against this file. A mock response is in
@@ -23,8 +23,10 @@ When present, the server records the check's metadata (never audio or file names
 A public HTML landing page ("Team Gemini") for people who open the server URL in a browser. Not part of the API; the app never calls it.
 
 ### GET /health
-Returns `{"ok": true, "model": "<release name, e.g. v4p6>" | "mock", "device": "cuda|cpu", "version": "0.5", "mock": bool, "weights_found": bool}`, plus `load_error` (string) if weights were found but could not be loaded.
+Returns `{"ok": true, "model": "<release name, e.g. v4p6>" | "hf:<repo id>" | "mock", "device": "cuda|cpu", "version": "0.6", "mock": bool, "weights_found": bool}`, plus `load_error` (string) if weights were found but could not be loaded.
 `mock: true` means answers are demo data built from the canned example, not a real model result. The UI must show a "demo data" badge when it is true.
+`"hf:<repo id>"` (e.g. `hf:mo-thecreator/Deepfake-audio-detection`) means our own release is not loaded and a
+third-party open model from Hugging Face is answering instead (`server/app/hf_model.py`); `mock` is `false`.
 
 ### POST /analyze
 Request: `multipart/form-data` with the field `file` (wav, flac, mp3, m4a, aac,
@@ -50,18 +52,18 @@ Response 200:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `version` | string | `"0.5"` |
+| `version` | string | `"0.6"` |
 | `clip_id` | string | uuid |
 | `duration_s` | float | clip length in seconds |
 | `input` | object | `{ "sample_rate": int, "channels": int, "codec": str }` |
-| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v4p6/app", "release": "2026-09-26"}`. `/health` `model` is the release alone (`v4p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
+| `model` | object | `{ "name": "<release>/<profile>", "release": str }`, e.g. `{"name": "v4p6/app", "release": "2026-09-26"}`. With the Hugging Face stand-in: `{"name": "hf:<repo id>", "release": "<first 7 chars of the pinned commit>"}`. `/health` `model` is the release alone (`v4p6`); the profile is `app` on the server (`FUSION_PROFILE`) and `nsa` for the TSV |
 | `overall.llr` | float | natural-log likelihood ratio (synthetic vs real), capped at ±ln(100) |
 | `overall.prior` | float | the prior that was used |
 | `overall.probability` | float | sigmoid(llr + logit(prior)), between 0 and 1 |
 | `overall.verdict` | enum | `likely_synthetic` \| `inconclusive` \| `likely_real` |
 | `overall.fusion_bias` | float | optional; the fusion intercept, which belongs to no analyzer. `fusion_bias` + the `llr_contribution`s = the LLR before the cap |
 | `segments[]` | array | each item is `{ "start_s", "end_s", "llr", "probability" }`: the neural detector alone on each 4 s window (up to 3) |
-| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; with `overall.fusion_bias` they sum to the fused LLR before the cap) |
+| `analyzers[]` | array | each item is `{ "name", "ran": bool, "finding": str, "llr_contribution": float, "ms": int }`: which techniques ran, what each found, and how much each moved the LLR (uncapped; with `overall.fusion_bias` they sum to the fused LLR before the cap). The Hugging Face stand-in reports one entry, `hf_detector`, with `fusion_bias` 0 |
 | `manipulation` | object | `{ "type": str, "confidence": float }`. `type` is `"unknown"` until we have the NSA label schema. |
 | `channel` | object | `{ "bandwidth_hz": int, "phone_like": bool, "note": str }` |
 | `transcript` | string or null | optional |
@@ -129,6 +131,7 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.6: a third-party Hugging Face model can answer while our release is not loaded: `/health` and `model.name` show `hf:<repo id>`, `analyzers[]` has a single `hf_detector`, `mock` is `false`, and a file-less call check gets 400 `too_short` (as with any real model; the app always sends the recorded clip). Real-model responses now carry the API `version` (they said `0.3`).
 - 0.5 (no bump, IPC only; the HTTP API is unchanged): `wizard.listen()`, `wizard.autoCheck(yes)` and the `call-listen` state. Calls upload 12 s of captured call audio with `source=call`, after a one-time opt-in or a direct request, so the app no longer sends file-less call checks.
 - 0.5: `POST /analyze` accepts `source=call` with no `file` (mocked server only; a real model gives `too_short`). Demo answers are now about 70% likely synthetic, 30% likely real, instead of always the same likely-synthetic example. The app sends call checks to the server too.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).

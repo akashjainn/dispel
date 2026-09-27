@@ -83,3 +83,14 @@
   on every call is checked as it starts (12 s, "Listening…" bubble shown while recording, clip deleted after the
   server answers). "Only when I ask" saves false: checks only from the tray or ⌘⇧L. Closing the bubble leaves it
   unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.
+- **Sat 20:20. Hugging Face stand-in model (proposed by Israel, needs Akash's OK):** while `MODEL_DIR` has no `hearsay.json`,
+  the server answers with a third-party open detector instead of demo data: `mo-thecreator/Deepfake-audio-detection`
+  (wav2vec2-base, Apache-2.0) pinned to commit `e4d9874b493362149cec96ced85f00b00b1a04c0` (`HF_MODEL`/`HF_REVISION` in
+  `docker/compose.prod.yml`). Order: hearsay release > HF stand-in > mock. Weights are downloaded once into
+  `/opt/dispel/data/hf`; inference runs on our server, so audio is never sent to Hugging Face. Scored with hearsay's
+  windowing (up to 3 x 4 s), window LLR = logit[fake] - logit[real], mean over windows, capped at +/-ln(100); same
+  0.25/0.75 band. Check run (`server/tools/score_folder.py`): 8 LibriSpeech clean clips vs 6 macOS `say` TTS clips:
+  fakes 6/6 likely_synthetic; reals 6 likely_real, 1 inconclusive, 1 likely_synthetic; AUC 1.000. Rejected on the same
+  clips: `MelodyMachine/Deepfake-audio-detection-V2` (called all 6 TTS clips real at p ~ 1e-5, also through the stock HF
+  pipeline) and `Gustking/wav2vec2-large-xlsr-deepfake-audio-classification` (ranked well but 4 of 8 reals >= 0.75, and
+  3-4x slower on CPU). Not yet checked on ElevenLabs clones or phone audio. (israel/hf-model)
