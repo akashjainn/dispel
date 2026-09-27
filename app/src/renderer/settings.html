@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'"
+    />
+    <title>Dispel Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <h1>Settings</h1>
+
+    <section>
+      <h2>I use Dispel for</h2>
+      <div class="segmented" role="radiogroup">
+        <label><input type="radio" name="mode" value="personal" /> <span>Personal</span></label>
+        <label><input type="radio" name="mode" value="business" /> <span>Work</span></label>
+      </div>
+      <p class="hint" id="mode-hint"></p>
+    </section>
+
+    <section>
+      <h2 id="contact-heading">Trusted contact</h2>
+      <label class="field">
+        <span>Name</span>
+        <input id="name" type="text" maxlength="60" placeholder="Mom" />
+      </label>
+      <label class="field">
+        <span>Phone number or iMessage email</span>
+        <input id="handle" type="text" maxlength="120" placeholder="+1 404 555 0123" />
+      </label>
+      <p class="hint">
+        Texts go from your Mac’s Messages app, only when you press the button on a flagged call.
+      </p>
+    </section>
+
+    <section>
+      <h2>Calls</h2>
+      <label class="check">
+        <input id="auto-check" type="checkbox" /> <span>Check calls automatically</span>
+      </label>
+      <p class="hint">
+        When a call starts, the wizard listens to the caller for 12 seconds and sends that clip to our
+        server to check. It’s deleted after. Off: check a call from the menu-bar icon or with ⌘⇧L.
+      </p>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+
+    <div class="actions">
+      <button id="test" class="btn">Send a test text</button>
+      <button id="save" class="btn primary">Save</button>
+    </div>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

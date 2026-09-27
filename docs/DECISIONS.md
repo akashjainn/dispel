@@ -61,3 +61,25 @@
 - **Sat 09:10. Release v4p6 (supersedes v3p6):** v4 (v3 + ElevenLabs stock voices and Kokoro, 3 h warm start) replaces
   v3 as the neural detector. Same on DiffSSD validation; clearly better on generators and voices it never trained on
   (ffmpeg-stretched frontier ElevenLabs 89% -> 100% caught, teammate clones 10% -> 35%, no new false alarms). Table in ml/README.md.
+- **Sat 17:30. Notify a contact (David, app):** on a flagged call the wizard offers "Notify trusted
+  contact" (personal) or "Notify my manager" (work), chosen in the app's Settings. It sends a text
+  from the user's own Mac through Messages (iMessage, else SMS relay), only when the user presses
+  the button. Nothing goes through our server; the contact's name and number stay in the app's
+  local settings file. The text says "likely AI-generated" with the score, never that the caller
+  is certainly fake, and marks mock results as a test.
+- **Sat 18:15. Real call checks, on request only (David, app):** calls are no longer scored automatically. When a
+  call starts the wizard offers to listen; only "Listen" (or the tray item, or ⌘⇧L) records, for 12 s. It taps the
+  call app's audio **output** (the other person, not the user's mic) with a Core Audio process tap
+  (`app/native/callcapture.swift`, macOS 14.2+, "System Audio Recording" permission). If that app isn't playing sound
+  itself (e.g. its audio runs in a WebKit process), it taps all system audio except Dispel and logs that. The WAV goes to
+  our server as `source=call` and is deleted from a temp folder right after. A silent capture is reported as "couldn't
+  hear anything", never scored.
+- **Sat 18:15. Demo caller rig (David, `demo/caller/`):** an iPhone web page tells a second "caller" laptop to dial the
+  judge's laptop (Teams/FaceTime links; Discord by hand), play a prepared clip into BlackHole as the call's mic, and
+  optionally switch OBS to a matching deepfake video. Demo prop only; not part of the product or the server. Clips are
+  gitignored. Voices must be consented clones or published dataset clips, not new deepfakes of real public figures.
+- **Sat 18:45. Call checks: one-time opt-in (David, app; supersedes "on request only" above):** on the first detected
+  call the wizard asks once, "Check my calls automatically?". "Yes, always" saves `autoCheckCalls: true` and from then
+  on every call is checked as it starts (12 s, "Listening…" bubble shown while recording, clip deleted after the
+  server answers). "Only when I ask" saves false: checks only from the tray or ⌘⇧L. Closing the bubble leaves it
+  unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.

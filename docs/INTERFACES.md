@@ -90,11 +90,24 @@ makes every decision; the renderer only draws the state it's sent.
 
 Renderer → main (each argument is validated in main):
 - `wizard.pickFile()` opens a file dialog, then analyzes the chosen file.
+- `wizard.autoCheck(yes)` answers the one-time "Check my calls automatically?"
+  question (saved as `autoCheckCalls` in settings). Once it's yes, main checks
+  each call as it starts.
+- `wizard.listen()` ("Listen again", "Try again") checks the call now: main
+  records the call app's audio output for 12 s (`app/native/callcapture.swift`,
+  macOS 14.2+), uploads it as `POST /analyze` with `source=call`, and deletes it.
+  Also in the tray menu and on ⌘⇧L during a call. Nothing is recorded without
+  the opt-in or one of these.
 - `wizard.endCall()` answers "Yes, hang up" on a flagged call. Main quits the
   call app politely (like Cmd+Q) through the callwatch helper. Browsers are never
   quit; for them the wizard asks the user to close the call tab.
 - Dropped files never cross the bridge: the preload catches the drop and sends
   the file's path to main, which checks the extension, that it's a file, and its size.
+- `wizard.notify()` is the "Notify trusted contact" / "Notify my manager"
+  button on a flagged call: main texts the contact from Settings through the
+  Mac's Messages app (or opens Settings if nobody is set up).
+- The Settings window has its own bridge (`window.settings`: `get`, `save`,
+  `sendTest`); main answers it only for that window.
 - `wizard.learn(topic?)` opens Learn mode (`deepfake | scams | protect`, or the
   topic list). The lesson text lives in `app/src/renderer/lessons.js`.
 - `wizard.contextMenu()`, `wizard.dismissBubble()`, `wizard.vanished()`,
@@ -102,20 +115,21 @@ Renderer → main (each argument is validated in main):
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
-  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-alert`.
-  `result` and `call-alert` carry an AnalyzeResponse as `result`.
+  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-listen | call-alert`.
+  `result` and `call-alert` carry an AnalyzeResponse as `result`. `call-listen`
+  carries `{ app, step: offer | listening | checking | result | error, seconds, result?, error? }`
+  (`offer` is the one-time automatic-check question);
+  a likely-synthetic result goes to `call-alert` instead.
 
 File and call checks go to the server set in `app/config.local.json` or
-`DISPEL_SERVER_URL` (local mock if neither is set). Not built yet:
-`captureLast(seconds)` (system-audio capture). Until then no call audio is
-captured: call checks are sent without a file, and if the server can't answer
-(a real model is loaded, or it's unreachable) the app uses its local mock (see
-`app/src/main/analyzer.js`).
+`DISPEL_SERVER_URL`, unless the tray's "Results from" picks a local mock (then
+nothing is recorded or uploaded; see `app/src/main/analyzer.js`).
 
 The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
+- 0.5 (no bump, IPC only; the HTTP API is unchanged): `wizard.listen()`, `wizard.autoCheck(yes)` and the `call-listen` state. Calls upload 12 s of captured call audio with `source=call`, after a one-time opt-in or a direct request, so the app no longer sends file-less call checks.
 - 0.5: `POST /analyze` accepts `source=call` with no `file` (mocked server only; a real model gives `too_short`). Demo answers are now about 70% likely synthetic, 30% likely real, instead of always the same likely-synthetic example. The app sends call checks to the server too.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).
 - 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.

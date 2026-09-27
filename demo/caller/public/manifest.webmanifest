@@ -1,0 +1,8 @@
+{
+  "name": "Dispel caller rig",
+  "short_name": "Caller",
+  "display": "standalone",
+  "background_color": "#14111f",
+  "theme_color": "#14111f",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}

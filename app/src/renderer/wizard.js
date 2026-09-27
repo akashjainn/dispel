@@ -16,6 +16,7 @@ const COPY = {
 };
 const DIGIT_ROW = { inconclusive: 0, likely_synthetic: 1, likely_real: 2 };
 let mode = 'hidden';
+let listenStep = null; // call-listen step, so its buttons know what they answer
 
 // ---------- drawing helpers ----------
 
@@ -45,8 +46,9 @@ function renderDigits(percent, verdict) {
   }
 }
 
-// ask: { text, yes: bool, noLabel } shows a question with buttons, or null.
-function showBubble({ title, result, note = '', alert = false, ask = null, learnMore = false }) {
+// ask: { text, yes: bool, yesLabel, noLabel } shows a question with buttons, or null.
+// notify: { label, configured, status } shows the "text my contact" button.
+function showBubble({ title, result, note = '', alert = false, ask = null, learnMore = false, notify = null }) {
   const b = $('bubble');
   b.className = `bubble${alert ? ' alert' : ''}${result ? ' ' + result.overall.verdict : ''}`;
   $('bubble-title').textContent = title;
@@ -62,10 +64,20 @@ function showBubble({ title, result, note = '', alert = false, ask = null, learn
   $('lesson').hidden = true;
   $('learn-more').hidden = !learnMore;
   if (ask) {
-    $('ask-text').textContent = ask.text;
+    $('ask-text').textContent = ask.text || '';
+    $('ask-text').hidden = !ask.text;
     $('ask-yes').hidden = !ask.yes;
+    $('ask-yes').textContent = ask.yesLabel || 'Yes, hang up';
     $('ask-no').hidden = !ask.noLabel;
     $('ask-no').textContent = ask.noLabel || '';
+  }
+  $('notify-row').hidden = !notify;
+  if (notify) {
+    const st = notify.status;
+    $('notify-btn').textContent = st?.state === 'sent' ? 'Text again' : notify.label;
+    $('notify-btn').disabled = st?.state === 'sending';
+    $('notify-status').textContent = st?.text ?? '';
+    $('notify-status').className = `notify-status ${st?.state ?? ''}`;
   }
   b.hidden = false;
   placeBubble();
@@ -167,7 +179,42 @@ const states = {
     enter(appear, () => wizardLayer.play(WIZARD.focus, 4));
   },
 
-  'call-alert'({ app, result, bubble = true, prompt = 'ask' }) {
+  // The one-time "check calls automatically?" question, listening, checking,
+  // and the answer (unless it's likely synthetic: that's call-alert).
+  'call-listen'({ app, step, seconds, result, error, appear }) {
+    listenStep = step;
+    setBody('call');
+    wand(step === 'listening' || step === 'checking');
+    potLayer.play(POT.bubble, step === 'checking' ? 12 : 6);
+    const again = { yes: true, yesLabel: 'Listen again', noLabel: 'OK' };
+    if (step === 'offer') {
+      enter(appear, () => wizardLayer.play(WIZARD.idle, 6));
+      showBubble({
+        title: 'Check my calls automatically?',
+        note: `I’ll listen to the first ${seconds} seconds of each call and send it to our server to check. It’s deleted after. I’ll only ask once; change it in Settings.`,
+        ask: { text: '', yes: true, yesLabel: 'Yes, always', noLabel: 'Only when I ask' },
+      });
+    } else if (step === 'listening') {
+      wizardLayer.play(WIZARD.focus, 8);
+      showBubble({
+        title: `Listening to ${app}…`,
+        note: `About ${seconds} seconds. The clip goes to our server to be checked, then it’s deleted.`,
+      });
+    } else if (step === 'checking') {
+      wizardLayer.play(WIZARD.focus, 8);
+      showBubble({ title: 'Consulting the cauldron…', note: 'Checking the clip on our server.' });
+    } else if (step === 'result' && result) {
+      const { verdict } = result.overall;
+      wizardLayer.play(verdict === 'likely_real' ? WIZARD.happy : WIZARD.idle, 6);
+      poof();
+      showBubble({ title: COPY[verdict].title, result, note: `Heard on ${app}. Call audio lowers reliability.`, ask: again });
+    } else {
+      wizardLayer.play(WIZARD.idle, 6);
+      showBubble({ title: error || 'Something went wrong.', ask: { ...again, yesLabel: 'Try again' } });
+    }
+  },
+
+  'call-alert'({ app, result, bubble = true, prompt = 'ask', notify = null }) {
     setBody('call');
     if (!bubble) {
       hideBubble();
@@ -189,9 +236,10 @@ const states = {
     showBubble({
       title: 'This is likely not a real person speaking.',
       result,
-      note: `Heard on ${app}. Call audio is compressed, so this is less reliable.`,
+      note: `Heard on ${app}. Call audio lowers reliability.`,
       alert: true,
       ask: ASK[prompt] ?? ASK.ask,
+      notify,
     });
   },
 };
@@ -204,8 +252,15 @@ window.wizard.onState((state) => {
 // ---------- input: click to choose a file, drag to move, drop to analyze ----------
 
 $('bubble-close').addEventListener('click', () => window.wizard.dismissBubble());
-$('ask-yes').addEventListener('click', () => window.wizard.endCall());
-$('ask-no').addEventListener('click', () => window.wizard.dismissBubble());
+$('ask-yes').addEventListener('click', () => {
+  if (mode !== 'call-listen') window.wizard.endCall();
+  else if (listenStep === 'offer') window.wizard.autoCheck(true);
+  else window.wizard.listen();
+});
+$('ask-no').addEventListener('click', () =>
+  mode === 'call-listen' && listenStep === 'offer' ? window.wizard.autoCheck(false) : window.wizard.dismissBubble(),
+);
+$('notify-btn').addEventListener('click', () => window.wizard.notify());
 $('learn-more').addEventListener('click', () => window.wizard.learn('scams'));
 $('lesson-back').addEventListener('click', () => {
   if (lesson.page > 0) lesson.page -= 1;

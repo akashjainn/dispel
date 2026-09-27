@@ -1,0 +1,54 @@
+{
+  "audioDevice": "BlackHole 2ch",
+  "monitor": true,
+  "obs": {
+    "url": "ws://127.0.0.1:4455",
+    "password": "",
+    "idleScene": "Idle"
+  },
+  "platforms": {
+    "teams": {
+      "label": "Teams",
+      "app": "Microsoft Teams",
+      "dial": "msteams:/l/call/0/0?users=judge-laptop@example.com",
+      "dialVideo": "msteams:/l/call/0/0?users=judge-laptop@example.com&withVideo=true"
+    },
+    "facetime": {
+      "label": "FaceTime",
+      "app": "FaceTime",
+      "dial": "facetime-audio://judge-laptop@example.com",
+      "dialVideo": "facetime://judge-laptop@example.com",
+      "note": "FaceTime asks to confirm on the caller laptop: click Call."
+    },
+    "discord": {
+      "label": "Discord",
+      "app": "Discord",
+      "note": "Discord can't be dialed from a link. Start the call on the caller laptop, then tap a caller."
+    }
+  },
+  "callers": [
+    {
+      "id": "boss",
+      "label": "Your boss",
+      "subtitle": "cloned voice (consented teammate)",
+      "audio": "clips/boss.wav",
+      "video": {
+        "file": "clips/boss.mov",
+        "scene": "Boss",
+        "input": "Boss video"
+      }
+    },
+    {
+      "id": "public-figure",
+      "label": "Public figure",
+      "subtitle": "published dataset deepfake",
+      "audio": "clips/public-figure.wav"
+    },
+    {
+      "id": "real",
+      "label": "Real voice (control)",
+      "subtitle": "genuine recording, should read likely real",
+      "audio": "clips/real.wav"
+    }
+  ]
+}
