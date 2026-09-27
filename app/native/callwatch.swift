@@ -49,6 +49,9 @@ let callApps: [CallApp] = [
             quitBundles: ["com.microsoft.teams"]),
     CallApp(name: "Discord", bundlePrefixes: ["com.hnc.Discord"], windowOwners: ["Discord"], quitBundles: ["com.hnc.Discord"]),
     CallApp(name: "Slack", bundlePrefixes: ["com.tinyspeck.slackmacgap"], windowOwners: ["Slack"], quitBundles: ["com.tinyspeck.slackmacgap"]),
+    // Demo: demo/call-sim's fake phone call (it holds the mic while "connected").
+    CallApp(name: "Call Simulator", bundlePrefixes: ["tech.hocuspocus.callsim"], windowOwners: ["Call Simulator"],
+            quitBundles: ["tech.hocuspocus.callsim"]),
     CallApp(name: "Google Chrome", bundlePrefixes: ["com.google.Chrome"], windowOwners: ["Google Chrome"]),
     CallApp(name: "Arc", bundlePrefixes: ["company.thebrowser."], windowOwners: ["Arc"]),
     CallApp(name: "Safari", bundlePrefixes: ["com.apple.Safari", "com.apple.WebKit"], windowOwners: ["Safari"]),

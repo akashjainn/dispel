@@ -1,0 +1,21 @@
+{
+  "name": "dispel-call-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo: a fake incoming phone call that plays a real or synthetic clip for the Dispel wizard to check.",
+  "main": "main.js",
+  "scripts": {
+    "start": "node build.js --open",
+    "build": "node build.js",
+    "dev": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "smoke": "env -u ELECTRON_RUN_AS_NODE electron . --smoke"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^44.4.5"
+  }
+}

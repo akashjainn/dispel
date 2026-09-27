@@ -17,6 +17,7 @@ npm start -- --simulate-call   # runs the call flow with a fake call window (rea
   still work. The warning bubble (which has buttons) opens in the top-right
   corner instead, away from the End button. The wizard and the colored outline hide while another app
   is in front and come back when you return to the call.
+- **2D / 3D:** ⌘⇧2 flips the wizard between the pixel-art and 3D look at any time (also "3D look" in the right-click and menu-bar menus). The choice is saved.
 - **Checking calls:** on the first call, the wizard asks once, "Check my calls
   automatically?" After **Yes, always**, every call is checked as it starts;
   after **Only when I ask**, use tray → "Listen to this call" or ⌘⇧L during a

@@ -7,7 +7,7 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 |---|---|---|---|---|---|
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
-| David | DavidPopesc | `app/`, `demo/caller/` | Wizard app: file check, call listen (real capture → server), demo caller rig | david-frontend | weights on the server for real scores |
+| David | DavidPopesc | `app/`, `demo/caller/`, `demo/call-sim/` | Wizard app: file check, call listen (real capture → server), demo caller rig | david-frontend | weights on the server for real scores |
 | Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server`, `web/` | Website at hocuspocus.tech: the wizard's file check + evidence report in a browser | israel/web-app | |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
@@ -40,6 +40,9 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sun · David (Claude) · demo/call-sim: the app is now an iPhone cutout (frameless transparent window, Recents list + call screens on the phone, drop files onto it as real/synthetic); file names no longer show the answer-key folder · david-frontend
+- Sun · David (Claude) · app: ⌘⇧2 (global) flips the wizard between 2D and 3D, same path as the "3D look" menu item (saved to prefs) · david-frontend
+- Sun · David (Claude) · demo/call-sim: Electron "Call Simulator" app, one laptop, no real call (ring → Accept holds the mic → plays a clip from clips/real|synthetic → Show answers reveals the key; drop files to add). Packaged with bundle ID tech.hocuspocus.callsim, added to app/native/callwatch.swift's call apps (wizard can end it). Smoke test passes dev + packaged; the live wizard flow isn't tested yet · david-frontend
 - Sun 01:30 · Israel (Claude) · web: hocuspocus.tech is the wizard's file check in a browser (drop/pick a file → verdict bubble with voice lines → evidence report; wizard/witch, 2D/3D; Learn lessons). Reuses app/Assets and 4 renderer scripts via Caddy mounts (no copies). server: public `POST /web/analyze` (no key, no history, 30/hour per IP, 429 `rate_limited`); INTERFACES 0.7. Tested locally with the mock server + headless Chrome (desktop + phone widths); not yet deployed · israel/web-app
 - Sat 23:30 · Israel (Claude) · infra: Vultr hosts DNS for hocuspocus.tech (`infra/vultr/dns.tf`: apex, www, api A records to the server, TTL 300); apex + www serve the static site in `web/` ("Team Gemini" placeholder), api + sslip.io reach the API, Caddy reloads on deploy (web/ changes deploy too); `base_url` = https://api.hocuspocus.tech. Needs an infra apply + nameservers ns1/ns2.vultr.com at get.tech · israel/domain
 - Sat 23:10 · Akash (Claude) · merged main into akash/hearsay-pipeline (kept main's INTERFACES 0.6, HF stand-in and app decisions; hearsay/ from the branch) · PR #20

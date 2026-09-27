@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src file: blob:">
+<title>Call Simulator</title>
+<style>
+  :root {
+    --green: #30d158; --red: #ff453a; --purple: #bf9bff; --amber: #ffb340;
+    --text: #fff; --muted: #9a9aa2; --row: #1c1c1e; --line: #2c2c2e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { font: 15px/1.35 -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); user-select: none; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; -webkit-app-region: no-drag; }
+
+  /* The window is exactly this phone; everything outside its rounded corners is transparent. */
+  .phone { position: absolute; inset: 0; border-radius: 56px; background: #1a1a1c; padding: 11px;
+           box-shadow: inset 0 0 0 1.5px #4a4a4e, inset 0 0 0 3px #0a0a0a; -webkit-app-region: drag; }
+  .screen { position: relative; height: 100%; border-radius: 46px; overflow: hidden; background: #000; }
+  .island { position: absolute; top: 11px; left: 50%; width: 104px; height: 31px; margin-left: -52px;
+            background: #000; border-radius: 20px; z-index: 5; }
+  .statusbar { position: absolute; top: 0; left: 0; right: 0; height: 52px; padding: 17px 30px 0 34px; z-index: 4;
+               display: flex; justify-content: space-between; font-weight: 600; font-size: 15px; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  .statusbar svg { height: 12px; fill: #fff; }
+  .home-bar { position: absolute; bottom: 8px; left: 50%; width: 120px; height: 5px; margin-left: -60px;
+              border-radius: 3px; background: #fff; opacity: .85; z-index: 4; }
+
+  .view { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 60px 16px 28px; }
+  .hidden { display: none !important; }
+
+  /* recents: the caller list */
+  .title { font-size: 32px; font-weight: 700; margin: 10px 4px 10px; display: flex; align-items: baseline; justify-content: space-between; }
+  .title button { font-size: 15px; font-weight: 400; color: #0a84ff; }
+  .list { flex: 1; overflow-y: auto; -webkit-app-region: no-drag; margin: 0 -4px; }
+  .list::-webkit-scrollbar { display: none; }
+  .row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+  .row:active { background: #111; }
+  .row .av { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(#a3a8b8, #6c7080); flex: none;
+             display: grid; place-items: center; font-weight: 600; font-size: 17px; }
+  .row .name { flex: 1; min-width: 0; }
+  .row .name div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .file { color: var(--muted); font-size: 12px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid #48484a; color: var(--muted); white-space: nowrap; }
+  .tag.real { color: var(--green); border-color: var(--green); }
+  .tag.synthetic { color: var(--purple); border-color: var(--purple); }
+  .empty { color: var(--muted); font-size: 13px; padding: 16px 6px; line-height: 1.5; }
+  .toolbar { display: flex; justify-content: space-around; padding: 10px 0 4px; border-top: 1px solid var(--line); margin: 0 -16px; }
+  .toolbar button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); width: 88px; }
+  .toolbar button.on { color: #0a84ff; }
+  .toolbar svg { width: 24px; height: 24px; fill: currentColor; }
+
+  /* drop targets, shown while dragging files over the phone */
+  .drops { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; gap: 10px;
+           padding: 64px 14px 30px; background: #000c; }
+  .drop { flex: 1; border: 2px dashed #555; border-radius: 22px; display: grid; place-items: center; font-weight: 600; font-size: 18px; }
+  .drop[data-label="real"] { color: var(--green); }
+  .drop[data-label="synthetic"] { color: var(--purple); }
+  .drop.over { border-style: solid; border-color: currentColor; background: #ffffff10; }
+
+  /* call screens */
+  .call { background: linear-gradient(180deg, #4b5a74 0%, #262c3a 55%, #111318 100%); align-items: center; text-align: center; padding-top: 96px; }
+  .call .caller { font-size: 30px; font-weight: 500; padding: 0 12px; }
+  .call .status { color: #d4d8e2; font-size: 16px; margin-top: 4px; }
+  .call .key { margin-top: 14px; min-height: 22px; }
+  .call .err { color: var(--amber); font-size: 12.5px; margin: 12px 18px 0; }
+  .big-av { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(#a3a8b8, #6c7080);
+            display: grid; place-items: center; font-size: 38px; font-weight: 600; margin-bottom: 14px; }
+  .ringing .big-av { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 14px #ffffff14; } }
+  .spacer { flex: 1; }
+  .answer-row { display: flex; justify-content: space-between; width: 100%; padding: 0 22px 34px; }
+  .pad { display: grid; grid-template-columns: repeat(3, 70px); gap: 18px 26px; margin-bottom: 34px; }
+  .pad div { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: #e4e6ec; }
+  .pad span { width: 70px; height: 70px; border-radius: 50%; background: #ffffff24; display: grid; place-items: center; }
+  .pad svg { width: 28px; height: 28px; fill: #fff; }
+  .round { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; }
+  .round svg { width: 32px; height: 32px; fill: #fff; }
+  .accept { background: var(--green); }
+  .decline, .hangup { background: var(--red); }
+  .decline svg, .hangup svg { transform: rotate(135deg); }
+  .round-label { font-size: 13px; margin-top: 8px; color: #e4e6ec; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen" id="screen">
+    <div class="island"></div>
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <span class="icons">
+        <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="1.8"/><rect x="24" y="4" width="1.8" height="4" rx=".9" opacity=".5"/></svg>
+      </span>
+    </div>
+
+    <!-- idle: recents -->
+    <div class="view" id="recents">
+      <div class="title">Recents <button id="openFolder">Folder</button></div>
+      <div class="list" id="list"></div>
+      <div class="toolbar">
+        <button id="surprise"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-7 8H3v-2h3.5l7-8H17zm0 11l4 4-4 4v-3h-3.4l-2.2-2.5 1.3-1.5 1.8 2H17zM3 6h4.4l2.2 2.5-1.3 1.5-1.8-2H3z"/></svg>Surprise</button>
+        <button id="showKey"><svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 4.5-10 7 1 2.5 5 7 10 7s9-4.5 10-7c-1-2.5-5-7-10-7zm0 11.5a4.5 4.5 0 110-9 4.5 4.5 0 010 9zm0-7a2.5 2.5 0 100 5 2.5 2.5 0 000-5z"/></svg><span id="showKeyLabel">Answers</span></button>
+      </div>
+    </div>
+
+    <!-- ringing -->
+    <div class="view call ringing hidden" id="incoming">
+      <div class="big-av" id="avatarIn">?</div>
+      <div class="caller" id="callerIn"></div>
+      <div class="status">mobile</div>
+      <div class="key" id="keyIn"></div>
+      <div class="spacer"></div>
+      <div class="answer-row">
+        <div><button class="round decline" id="decline" aria-label="Decline"><svg viewBox="0 0 24 24"><path id="handset" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg></button><div class="round-label">Decline</div></div>
+        <div><button class="round accept" id="accept" aria-label="Accept"><svg viewBox="0 0 24 24"><use href="#handset"/></svg></button><div class="round-label">Accept</div></div>
+      </div>
+    </div>
+
+    <!-- connected -->
+    <div class="view call hidden" id="inCall">
+      <div class="caller" id="callerOn"></div>
+      <div class="status" id="status">0:00</div>
+      <div class="key" id="keyOn"></div>
+      <div class="err" id="err"></div>
+      <div class="spacer"></div>
+      <div class="pad">
+        <div><span><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 003-3V5a3 3 0 00-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 006 6.9V21h2v-3.1a7 7 0 006-6.9z"/></svg></span>mute</div>
+        <div><span><svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="6" cy="11" r="2"/><circle cx="12" cy="11" r="2"/><circle cx="18" cy="11" r="2"/><circle cx="6" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><circle cx="18" cy="17" r="2"/></svg></span>keypad</div>
+        <div><span><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8v8a4.5 4.5 0 002.5-4zM14 3.2v2.1a7 7 0 010 13.4v2.1a9 9 0 000-17.6z"/></svg></span>speaker</div>
+      </div>
+      <div><button class="round hangup" id="hangup" aria-label="End call"><svg viewBox="0 0 24 24"><use href="#handset"/></svg></button></div>
+    </div>
+
+    <div class="drops hidden" id="drops">
+      <div class="drop" data-label="real">Drop as real</div>
+      <div class="drop" data-label="synthetic">Drop as synthetic</div>
+    </div>
+
+    <div class="home-bar"></div>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>

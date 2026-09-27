@@ -32,6 +32,7 @@ const SIZE = {
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
 const LISTEN_KEY = 'CommandOrControl+Shift+L'; // "listen to this call", only while a call is on
+const LOOK_KEY = 'CommandOrControl+Shift+2'; // flip between the 2D and 3D look, any time
 
 let tray = null;
 let wizard = null;
@@ -603,6 +604,8 @@ function setLook(next) {
   tray.setToolTip(`Dispel ${character}`);
 }
 
+const toggleStyle = () => setLook({ style: style === '3d' ? '2d' : '3d' });
+
 const otherCharacter = () => (character === 'wizard' ? 'witch' : 'wizard');
 
 // Menu items for the look, shared by the right-click and menu-bar menus.
@@ -613,6 +616,8 @@ function lookMenuItems() {
       label: '3D look',
       type: 'checkbox',
       checked: style === '3d',
+      accelerator: LOOK_KEY,
+      registerAccelerator: false, // registered globally below, so it works with the menu closed
       click: (item) => setLook({ style: item.checked ? '3d' : '2d' }),
     },
   ];
@@ -783,6 +788,7 @@ app.whenReady().then(() => {
   obliterator.create();
   createTray();
   registerIpc();
+  if (!globalShortcut.register(LOOK_KEY, toggleStyle)) console.warn(`[look] ${LOOK_KEY} is taken by another app`);
 
   calls.on('call', onCallStarted);
   calls.on('move', onCallMoved);
