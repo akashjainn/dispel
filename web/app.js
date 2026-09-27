@@ -376,10 +376,10 @@ const TECHNIQUES = {
   dl_detector: ['Neural detector', 'A speech model fine-tuned to tell real voices from AI-made ones.'],
   hf_detector: ['Open-source neural detector', 'A public deepfake-audio model standing in while ours loads.'],
   lfcc: ['Frequency-texture detector', 'Looks at fine texture in the sound’s frequencies (LFCC features).'],
-  prosody: ['Prosody', 'Pitch range, pitch movement, jitter and shimmer.'],
-  spectral: ['Spectral', 'How energy is spread across frequencies.'],
-  voice: ['Voice quality', 'Breathiness and the voice’s harmonic structure.'],
-  rhythm: ['Rhythm', 'Timing of syllables, pauses and speaking rate.'],
+  prosody: ['Prosody', 'The pitch contour (range, movement) and voice roughness (jitter, shimmer).'],
+  spectral: ['Spectral', 'How energy is spread across frequencies, and traces a voice generator leaves there.'],
+  voice: ['Voice quality', 'The throat’s resonances (formants) and how pitch and loudness move together.'],
+  rhythm: ['Rhythm', 'How loudness rises and falls from syllable to syllable, measured so speed changes don’t matter.'],
 };
 const LLR_CAP = Math.log(100);
 const pct = (p) => `${Math.round(p * 100)}%`;
