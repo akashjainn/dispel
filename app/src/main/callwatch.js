@@ -72,17 +72,26 @@ class CallWatch extends EventEmitter {
     }
   }
 
-  // Hang up by politely quitting the call app. The answer arrives as
-  // 'end-result'; the call itself ends when the app lets go of the mic.
-  endCall() {
+  // Hang up by politely quitting the call app (appName: the call's "app", so
+  // it still works if the app let go of the mic for a moment). The answer
+  // arrives as 'end-result'; the call itself ends when the app lets go of the mic.
+  endCall(appName) {
     if (this.simulated) {
       this.endSimulated();
       this.emit('end-result', true);
     } else if (this.proc) {
-      this.proc.stdin.write('end\n');
+      const name = String(appName || '').replace(/[\r\n]/g, '');
+      this.proc.stdin.write(name ? `end ${name}\n` : 'end\n');
     } else {
       this.emit('end-result', false);
     }
+  }
+
+  // Bring the call app to the front (its window may be behind others).
+  focus(appName) {
+    if (this.simulated || !this.proc) return;
+    const name = String(appName || '').replace(/[\r\n]/g, '');
+    this.proc.stdin.write(name ? `focus ${name}\n` : 'focus\n');
   }
 
   // Demo helper: pretend a call is running in `bounds` until endSimulated().

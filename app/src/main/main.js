@@ -8,6 +8,8 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen, sh
 const analyzer = require('./analyzer');
 const { logResult, logPath } = require('./results-log');
 const { CallWatch } = require('./callwatch');
+const { CHARACTERS, STYLES, loadPrefs, savePrefs } = require('./prefs');
+const { Obliterator, COVERED_MS } = require('./obliterate');
 const { withCallClip, LISTEN_SECONDS } = require('./callcapture');
 const { loadConfig } = require('./config');
 const { loadSettings, saveSettings, notifyInfo } = require('./settings');
@@ -35,6 +37,7 @@ let tray = null;
 let wizard = null;
 let overlay = null;
 const calls = new CallWatch();
+const obliterator = new Obliterator(); // the hang-up spell's window
 
 // Where the wizard's bottom-right corner sits on the desktop. Dragging moves it.
 let desktopAnchor = null;
@@ -44,6 +47,8 @@ let bubble = false;
 let busy = false; // a file analysis is running
 let callSession = null; // { id, app, prefixes, bounds, canEnd, listening, alerted, result, prompt, ending, wasVisible }
 let guardEnabled = true;
+let character = 'wizard'; // wizard | witch, loaded from prefs.json once the app is ready
+let style = '2d'; // 2d (pixel art) | 3d (pre-rendered 3D sprites)
 
 // ---------- windows ----------
 
@@ -68,7 +73,7 @@ function createWizard() {
   });
   setWizardLevel('floating');
   wizard.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  wizard.loadFile(path.join(RENDERER, 'wizard.html'));
+  wizard.loadFile(path.join(RENDERER, 'wizard.html'), { query: { character, style } }); // first frame is right
   wizard.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   wizard.webContents.on('will-navigate', (e) => e.preventDefault());
 }
@@ -140,7 +145,7 @@ function setWizardLevel(level) {
 
 function setMode(next, payload = {}) {
   mode = next;
-  bubble = ['analyzing', 'result', 'call-listen', 'call-alert', 'learn'].includes(next);
+  bubble = ['analyzing', 'result', 'call-listen', 'call-alert', 'learn', 'greet'].includes(next);
   if (next === 'hidden') {
     wizard.webContents.send('wizard:state', { mode: 'hidden' });
     return;
@@ -164,7 +169,8 @@ function applyCallFocus() {
     return;
   }
   if (mode !== 'hidden' && !wizard.isVisible()) wizard.showInactive();
-  if (callSession && (callSession.alerted || callSession.verified)) showOverlay(callSession.bounds);
+  // The ring stays hidden while the call is being hung up: the spell has turned the window to crystal.
+  if (callSession && !callSession.ending && (callSession.alerted || callSession.verified)) showOverlay(callSession.bounds);
 }
 
 const OVERLAY_PAD = 24; // must match the ring's inset + border in overlay.html
@@ -206,10 +212,22 @@ function showOverlay(bounds, tone) {
 
 // ---------- desktop wizard ----------
 
+// Said on the way out of the hat; folded away after a few seconds.
+const GREETINGS = [
+  'Hi! Drop a voice clip on me and I’ll listen for signs it’s synthetic.',
+  'I’m here. Drop an audio file on me, or click me to choose one.',
+  'Got a voice message that feels off? Drop it on me.',
+];
+let greetTimer = null;
+
 function summon() {
   wizardVisible = true;
   if (callSession) return; // call mode owns the wizard until the call ends
-  setMode('idle', { appear: true });
+  setMode('greet', { appear: true, text: GREETINGS[Math.floor(Math.random() * GREETINGS.length)] });
+  clearTimeout(greetTimer);
+  greetTimer = setTimeout(() => {
+    if (mode === 'greet' && wizardVisible && !callSession) setMode('idle');
+  }, 5500);
 }
 
 function dismiss() {
@@ -245,7 +263,7 @@ async function analyzeFile(filePath) {
 
 async function pickFile() {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Choose an audio file for the wizard',
+    title: `Choose an audio file for the ${character}`,
     properties: ['openFile'],
     filters: [{ name: 'Audio', extensions: [...AUDIO_EXTS].map((e) => e.slice(1)) }],
   });
@@ -311,7 +329,8 @@ async function notifyContact() {
     openSettings();
     return;
   }
-  const refresh = () => callSession === s && mode === 'call-alert' && setMode('call-alert', alertPayload(s));
+  // Not while hanging up: redrawing the alert would cast the spell again.
+  const refresh = () => callSession === s && !s.ending && mode === 'call-alert' && setMode('call-alert', alertPayload(s));
   s.notifyStatus = { state: 'sending', text: `Texting ${info.who}…` };
   refresh();
   const res = await sendText(settings.contact.handle, alertText({ mode: settings.mode, app: s.app, result: s.result }));
@@ -352,7 +371,7 @@ function openSettings() {
   settingsWin.on('closed', () => {
     settingsWin = null;
     // The notify button's label depends on the settings.
-    if (callSession?.alerted && mode === 'call-alert') setMode('call-alert', alertPayload(callSession));
+    if (callSession?.alerted && !callSession.ending && mode === 'call-alert') setMode('call-alert', alertPayload(callSession));
   });
 }
 
@@ -465,9 +484,24 @@ function onCallEnded() {
   const s = callSession;
   console.log('[call] ended:', s.app);
   clearTimeout(s.endTimer);
+  clearTimeout(s.fireTimer);
+  clearTimeout(s.hangTimer);
   callSession = null;
   globalShortcut.unregister(LISTEN_KEY);
   overlay.hide();
+  if (s.ending && obliterator.active) {
+    // Let the crystal shatter before the wizard heads back to the desktop.
+    obliterator.shatter();
+    obliterator.whenDone(() => {
+      if (callSession) return; // a new call took over meanwhile
+      setWizardLevel('floating');
+      if (mode === 'call-alert') {
+        wizardVisible = true;
+        setMode('result', { message: 'I hung up the call.' });
+      } else placeWizard();
+    });
+    return;
+  }
   setWizardLevel('floating');
   if (s.ending) {
     wizardVisible = true;
@@ -482,26 +516,58 @@ function onCallEnded() {
   }
 }
 
-// "Yes, hang up": quit the call app. If the call is still going after a few
-// seconds (the app asked to confirm, or refused), say so.
+// "Yes, hang up": the wizard pulls out its wand and casts (wizard.js). When
+// the spell leaves the wand, a bolt hits the call window and turns it to
+// crystal (obliterate.js); once it's covered, quit the call app behind it.
+// If the call is still going after a few seconds (the app asked to confirm,
+// or refused), say so.
 function endCall() {
   const s = callSession;
   if (!s?.alerted || s.ending || !s.canEnd) return;
   s.ending = true;
   setCallPrompt('ending');
-  calls.endCall();
+  calls.focus(s.app); // the spell hits the call window, so bring it out from behind others
+  s.fireTimer = setTimeout(() => castSpell(s, null), 3000); // the spell never left the wand: hang up anyway
+}
+
+// from: the screen point where the spell left the wand, or null to skip the show.
+function castSpell(s, from) {
+  if (callSession !== s || !s.ending || s.cast) return;
+  s.cast = true;
+  clearTimeout(s.fireTimer);
+  if (!from || !s.bounds) {
+    hangUp(s);
+    return;
+  }
+  obliterator.cast({ from, target: s.bounds, style });
+  wizard.moveTop(); // the wizard stays in front of its spell
+  s.hangTimer = setTimeout(() => hangUp(s), COVERED_MS);
+}
+
+function hangUp(s) {
+  if (callSession !== s) return;
+  overlay.hide(); // the window is crystal now; the ring goes with it
   s.endTimer = setTimeout(() => {
     if (callSession !== s) return;
-    s.ending = false;
-    setCallPrompt('failed');
+    console.log('[call] still going 8 s after hanging up');
+    hangUpFailed(s);
   }, 8000);
+  calls.endCall(s.app);
 }
 
 function onEndResult(ok) {
+  console.log('[call] end result:', ok);
   const s = callSession;
   if (!s?.ending || ok) return;
   clearTimeout(s.endTimer);
+  hangUpFailed(s);
+}
+
+// The call is still going: break the crystal, bring the ring back, and say so.
+function hangUpFailed(s) {
   s.ending = false;
+  obliterator.shatter();
+  showOverlay(s.bounds);
   setCallPrompt('failed');
 }
 
@@ -523,10 +589,41 @@ function simulateCall() {
 
 // ---------- tray ----------
 
+// Wizard or witch, 2D or 3D. The renderer plays the transition; the choice is
+// saved for the next launch.
+function setLook(next) {
+  const c = CHARACTERS.includes(next.character) ? next.character : character;
+  const s = STYLES.includes(next.style) ? next.style : style;
+  if (c === character && s === style) return;
+  character = c;
+  style = s;
+  savePrefs({ ...loadPrefs(), character, style });
+  wizard.webContents.send('wizard:look', { character, style });
+  tray.setImage(trayIcon());
+  tray.setToolTip(`Dispel ${character}`);
+}
+
+const otherCharacter = () => (character === 'wizard' ? 'witch' : 'wizard');
+
+// Menu items for the look, shared by the right-click and menu-bar menus.
+function lookMenuItems() {
+  return [
+    { label: `Turn into a ${otherCharacter()}`, click: () => setLook({ character: otherCharacter() }) },
+    {
+      label: '3D look',
+      type: 'checkbox',
+      checked: style === '3d',
+      click: (item) => setLook({ style: item.checked ? '3d' : '2d' }),
+    },
+  ];
+}
+
 function trayIcon() {
-  // Wizard's face from the first idle frame, sized for the menu bar.
-  const sheet = nativeImage.createFromPath(path.join(ASSETS, 'wizard-sprites.png'));
-  const face = sheet.crop({ x: 20, y: 16, width: 48, height: 48 });
+  // The character's face from the first idle frame, sized for the menu bar.
+  const k = style === '3d' ? 4 : 1; // the 3D sheets are 4x
+  const sheetPath = style === '3d' ? path.join(ASSETS, '3d', `${character}-sprites.png`) : path.join(ASSETS, `${character}-sprites.png`);
+  const sheet = nativeImage.createFromPath(sheetPath);
+  const face = sheet.crop({ x: 20 * k, y: 16 * k, width: 48 * k, height: 48 * k });
   const icon = nativeImage.createEmpty();
   icon.addRepresentation({ scaleFactor: 1, buffer: face.resize({ width: 18, height: 18, quality: 'best' }).toPNG() });
   icon.addRepresentation({ scaleFactor: 2, buffer: face.resize({ width: 36, height: 36, quality: 'best' }).toPNG() });
@@ -535,10 +632,12 @@ function trayIcon() {
 
 function trayMenu() {
   return Menu.buildFromTemplate([
-    { label: wizardVisible ? 'Send wizard away' : 'Summon wizard', click: toggleWizard },
+    { label: wizardVisible ? `Send ${character} away` : `Summon ${character}`, click: toggleWizard },
     { label: 'Check an audio file…', click: pickFile, enabled: !busy },
     { label: 'Learn about deepfakes', click: () => learn() },
     { label: 'Settings…', click: openSettings },
+    { type: 'separator' },
+    ...lookMenuItems(),
     { type: 'separator' },
     {
       label: 'Watch calls',
@@ -577,7 +676,7 @@ function trayMenu() {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('Dispel wizard');
+  tray.setToolTip(`Dispel ${character}`);
   tray.on('click', toggleWizard);
   // Audio files can also be dropped on the menu-bar icon (macOS).
   tray.on('drop-files', (_e, files) => {
@@ -617,21 +716,32 @@ function registerIpc() {
     return sendText(s.contact.handle, testText(s.mode));
   });
 
+  // The hang-up spell left the wand at (x, y) in the wizard window.
+  ipcMain.on('wizard:blast-fire', (_e, x, y) => {
+    const s = callSession;
+    if (!s || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const b = wizard.getBounds();
+    if (x < 0 || y < 0 || x > b.width || y > b.height) return;
+    castSpell(s, { x: b.x + x, y: b.y + y });
+  });
+
   ipcMain.on('wizard:learn', (_e, topic) => learn(typeof topic === 'string' ? topic : undefined));
 
-  // Right-click on the wizard.
+  // Right-click on the wizard (or witch).
   ipcMain.on('wizard:context-menu', () => {
     Menu.buildFromTemplate([
       { label: 'Check an audio file…', click: pickFile, enabled: !busy },
       { label: 'Learn about deepfakes', click: () => learn() },
     { label: 'Settings…', click: openSettings },
       { type: 'separator' },
-      { label: 'Send wizard away', click: dismiss, enabled: !callSession },
+      ...lookMenuItems(),
+      { type: 'separator' },
+      { label: `Send ${character} away`, click: dismiss, enabled: !callSession },
     ]).popup({ window: wizard });
   });
 
   ipcMain.on('wizard:dismiss-bubble', () => {
-    if (mode === 'result' || mode === 'learn' || mode === 'call-listen') {
+    if (mode === 'result' || mode === 'learn' || mode === 'call-listen' || mode === 'greet') {
       if (callSession) showCallMode();
       else setMode('idle');
     } else if (mode === 'call-alert') {
@@ -667,8 +777,10 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.whenReady().then(() => {
   if (process.platform === 'darwin') app.dock.hide();
   desktopAnchor = defaultAnchor();
+  ({ character, style } = loadPrefs());
   createWizard();
   createOverlay();
+  obliterator.create();
   createTray();
   registerIpc();
 

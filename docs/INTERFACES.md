@@ -112,16 +112,36 @@ Renderer → main (each argument is validated in main):
   `sendTest`); main answers it only for that window.
 - `wizard.learn(topic?)` opens Learn mode (`deepfake | scams | protect`, or the
   topic list). The lesson text lives in `app/src/renderer/lessons.js`.
-- `wizard.contextMenu()`, `wizard.dismissBubble()`, `wizard.vanished()`,
+- `wizard.contextMenu()` opens the right-click menu (built in main). It includes
+  "Turn into a witch" / "Turn into a wizard".
+- `wizard.dismissBubble()`, `wizard.vanished()`,
   `wizard.drag(phase, x, y)` are UI only.
+- `wizard.blastFire(x, y)`: after "Yes, hang up" the wizard pulls out its wand
+  and casts; this says the spell left the wand at (x, y), in page px. Main
+  checks the point is inside the wizard window, draws the rest in a
+  click-through window over the call (`renderer/obliterate.html`, its own
+  preload `window.spell`), and quits the call app once the window is covered.
+  If it never arrives, main hangs up after 3 s anyway. The callwatch helper's
+  stdin command is now `end <app>` (the `app` it reported), so an app that
+  let go of the mic for a moment still gets quit; if the app refuses or is
+  still up 2.5 s later it gets SIGTERM. New `focus <app>` brings the call app
+  to the front when "Yes, hang up" is clicked, so the spell hits a visible window.
 
 Main → renderer:
 - `wizard.onState(cb)` receives `{ mode, ... }`, where `mode` is one of
-  `hidden | vanish | idle | analyzing | result | learn | call-watch | call-listen | call-alert`.
+  `hidden | vanish | idle | greet | analyzing | result | learn | call-watch | call-listen | call-alert`.
+  `greet` is `idle` plus a short hello (`text`) when summoned; main folds it
+  away after about 5 s. `call-alert` with `prompt: "ending"` plays the hang-up spell.
   `result` and `call-alert` carry an AnalyzeResponse as `result`. `call-listen`
   carries `{ app, step: offer | listening | checking | result | error, seconds, result?, error? }`
   (`offer` is the one-time automatic-check question);
   a likely-synthetic result goes to `call-alert` instead.
+- `wizard.onLook(cb)` receives `{ character: "wizard" | "witch", style: "2d" | "3d" }`
+  when the user changes the look (right-click or tray menu: "Turn into a witch/wizard",
+  "3D look"). The renderer plays the transition: a morph through the hat for a new
+  character, a glowing sweep for 2D <-> 3D. The saved look also comes in the page URL
+  (`wizard.html?character=witch&style=3d`) so the first frame is right. Main saves it
+  in `<userData>/prefs.json`.
 
 File and call checks go to the server set in `app/config.local.json` or
 `DISPEL_SERVER_URL`, unless the tray's "Results from" picks a local mock (then
@@ -131,8 +151,19 @@ The renderer never talks to the network directly. All HTTP calls go through the
 main process, which also holds the API key (never expose it to the renderer).
 
 ## Changelog
-- 0.6: a third-party Hugging Face model can answer while our release is not loaded: `/health` and `model.name` show `hf:<repo id>`, `analyzers[]` has a single `hf_detector`, `mock` is `false`, and a file-less call check gets 400 `too_short` (as with any real model; the app always sends the recorded clip). Real-model responses now carry the API `version` (they said `0.3`).
-- 0.5 (no bump, IPC only; the HTTP API is unchanged): `wizard.listen()`, `wizard.autoCheck(yes)` and the `call-listen` state. Calls upload 12 s of captured call audio with `source=call`, after a one-time opt-in or a direct request, so the app no longer sends file-less call checks.
+  `hidden | vanish | idle | greet | analyzing | result | learn | call-watch | call-listen | call-alert`.
+  `greet` is `idle` plus a short hello (`text`) when summoned; main folds it
+  away after about 5 s. `call-alert` with `prompt: "ending"` plays the hang-up spell.
+  `result` and `call-alert` carry an AnalyzeResponse as `result`. `call-listen`
+  carries `{ app, step: offer | listening | checking | result | error, seconds, result?, error? }`
+  (`offer` is the one-time automatic-check question);
+  a likely-synthetic result goes to `call-alert` instead.
+- `wizard.onLook(cb)` receives `{ character: "wizard" | "witch", style: "2d" | "3d" }`
+  when the user changes the look (right-click or tray menu: "Turn into a witch/wizard",
+  "3D look"). The renderer plays the transition: a morph through the hat for a new
+  character, a glowing sweep for 2D <-> 3D. The saved look also comes in the page URL
+  (`wizard.html?character=witch&style=3d`) so the first frame is right. Main saves it
+  in `<userData>/prefs.json`.
 - 0.5: `POST /analyze` accepts `source=call` with no `file` (mocked server only; a real model gives `too_short`). Demo answers are now about 70% likely synthetic, 30% likely real, instead of always the same likely-synthetic example. The app sends call checks to the server too.
 - 0.4 (no bump): documented that `model.name` is `<release>/<profile>` when the real pipeline runs (e.g. `v4p6/app`), and that `analyzers[]` lists all six techniques; added optional `overall.fusion_bias` (additive, clients may ignore it).
 - 0.4: `X-Dispel-Client` install id, `source` form field, `mock` in the response, `GET /history`; accepts aac, oga, opus, mp4, mov. The app now calls the server for file checks.
