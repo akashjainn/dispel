@@ -9,6 +9,26 @@ serves the app's API (`server/`) and ships in the Docker image (`docker/`).
 - API contract: [docs/INTERFACES.md](docs/INTERFACES.md). Every decision, dated: [docs/DECISIONS.md](docs/DECISIONS.md).
 - What NSA told us and what we inferred: [docs/CHALLENGE.md](docs/CHALLENGE.md). Model details: [ml/README.md](ml/README.md).
 
+## Highlights
+
+- **We diagnosed our own interim miss.** Our interim scored minDCF 0.258. Per-analyzer contributions showed why: on
+  ElevenLabs clones the network said "fake" (+2.8), while our hand-built feature models said "real" (-3.2, -2.0) and
+  won. The final system lets the network decide, and the features only explain its verdict.
+  [What we learned](#what-we-learned-the-short-version-of-docsdecisionsmd)
+- **We worked out what NSA's real clips are, without labels.** Three independent models place the low-score cluster of
+  the test set on VCTK recordings, not LJ Speech, and that cluster is about 70% of the clips, matching NSA's statement.
+  So we chose the final model by how well it separates fakes from VCTK-like real speech.
+  [How we chose the final system](#how-we-chose-the-final-system)
+- **We attacked our own detector with ElevenLabs:** every TTS model, instant clones of consenting teammates, the voice
+  changer, voice design, codecs and the Voice Isolator. On held-out teammates' clones, minDCF fell from 0.48 (v4) to
+  0.18 (v5c); on 4 generator systems never seen in training it is 0.000. [Held-out results](docs/ARCHITECTURE.md#held-out-results-for-the-shipped-network)
+- **We tested NSA's hints and kept only what held up.** Breathing and spectrogram "ribs" flip direction between mic and
+  studio audio, so we don't score on them. Clones speaking about 29% faster held up on same-sentence pairs, so the app
+  shows it as evidence. [NSA's hints](#what-we-learned-the-short-version-of-docsdecisionsmd)
+- **One pipeline, explained end to end.** The same `hearsay/` code writes the NSA TSV, runs the live server and ships
+  in Docker. Every app report shows per-window scores, what each analyzer found, and its limitations, including our
+  known weakness: isolator-cleaned real speech. [Architecture diagrams](docs/ARCHITECTURE.md)
+
 ## Results
 
 | Submission | System | minDCF (P(synthetic) 0.3, false alarm 4x) | EER |
