@@ -68,7 +68,7 @@
 - **Sat 16:30. Diagnosis (no test labels used):** noise and short clips do not explain it (DiffSSD test clips cropped to
   NSA durations, peak-normalized, noise matched to NSA's noise floor: v4 alone 0.049). On the test set the network calls
   664 clips synthetic and the fusion 332; the fusion demotes 134 clips the network scores above +10. Same pattern on
-  consenting teammates' ElevenLabs clones: network +2.8, spectral -3.2, prosody -2.0.
+  consenting HackGT volunteers' ElevenLabs clones: network +2.8, spectral -3.2, prosody -2.0.
 - **Sat 17:30. Notify a contact (David, app):** on a flagged call the wizard offers "Notify trusted
   contact" (personal) or "Notify my manager" (work), chosen in the app's Settings. It sends a text
   from the user's own Mac through Messages (iMessage, else SMS relay), only when the user presses
@@ -96,12 +96,12 @@
   unanswered, so it asks again next call. Changeable in Settings. AGENTS.md's capture rule updated to match.
 - **Sat 19:45. NSA hints tested, not used for scoring:** breaths, pauses, harmonic "ribs", start-vs-middle drift
   (20 features, 2,160 clips, `ml/analysis/features/hint_feats.py`). None points the same way across mic recordings,
-  studio audio, voice changer and DiffSSD. Speaking rate (clones +29% syllables/s on teammates) is app evidence and a
+  studio audio, voice changer and DiffSSD. Speaking rate (clones +29% syllables/s on the HackGT volunteers) is app evidence and a
   reference check only.
 - **Sat 20:00. Isolator-cleaned real speech counts as real** (team decision). Every model flags it (97-100%), so v5c
   trains on it as real.
 - **Sat 20:00. v5c training data (diversity, NSA's advice):** see README "What we learned" 5; every source keeps a held-out
-  slice, 4 new MLAAD systems are held out entirely, teammates are split by speaker. DiffSSD's test split (80%) is used for
+  slice, 4 new MLAAD systems are held out entirely, the HackGT volunteers are split by speaker. DiffSSD's test split (80%) is used for
   training (NSA: fair game); nothing is matched against NSA's test files.
 - **Sat 20:20. Hugging Face stand-in model (proposed by Israel, needs Akash's OK):** while `MODEL_DIR` has no `hearsay.json`,
   the server answers with a third-party open detector instead of demo data: `mo-thecreator/Deepfake-audio-detection`
@@ -141,3 +141,4 @@
   where many visitors share one venue IP); audio handling is
   the same as `/analyze` (memory/temp file, deleted, never sent to a third party). The site reuses the app's art, voice
   lines and sprite scripts through read-only mounts of `app/` instead of copies. Copy says "sent to our server". (israel/web-app)
+- **Sun 10:30. Final result (NSA):** minDCF **0.1027** for the v5c final (interim 0.258). NSA keeps the better of the two.
