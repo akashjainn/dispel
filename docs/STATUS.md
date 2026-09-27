@@ -8,13 +8,13 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 | Akash (repo owner) | akashjainn | `ml/`, `hearsay/`, model loading in `server/` | hearsay pipeline (six analyzers, fusion, TSV); v4 training | akash/hearsay-pipeline (PR #8) | NSA test-set download location |
 | Aniket | aniketgarg1 | TBD | | | |
 | David | DavidPopesc | `app/`, `demo/caller/` | Wizard app: file check, call listen (real capture → server), demo caller rig | david-frontend | weights on the server for real scores |
-| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | Demo answers 70% likely synthetic / 30% likely real; calls checked by the server too | israel/mock-verdict-mix | weights on the Vultr volume (server serves mock until then) |
+| Israel | Israel-Jauregui | `server/`, `infra/`, `docker/Dockerfile.server` | Make it real: Hugging Face stand-in model answers file and call checks until v4p6 is on the volume | israel/hf-model | Akash's OK on the stand-in (DECISIONS) |
 | Teammate 4 | TBD | TBD (pitch, demo clips, Devpost) | | | |
 
 ## Current state
 - Model: v4p6 (six analyzers; nsa/app profiles), see DECISIONS.md and ml/README.md. Calibration on new voices is a known gap.
 - Live server: see the latest `infra` run summary or `terraform output base_url` (the URL changes when the server is replaced). Deploys to it are automatic on merge to `main`.
-- Server: `/health`, `/analyze` and (0.4) `/history` run on Vultr with bearer auth. It loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; no weights are on the volume yet, so every answer is demo data (`mock: true`) built from the canned example: about 70% likely synthetic, 30% likely real (0.5).
+- Server: `/health`, `/analyze` and (0.4) `/history` run on Vultr with bearer auth. It loads the hearsay pipeline (`app` profile) when `MODEL_DIR/hearsay.json` exists; no weights are on the volume yet. On israel/hf-model, a third-party Hugging Face detector (`hf:mo-thecreator/Deepfake-audio-detection`, `mock: false`) answers until then; on `main` every answer is still demo data (`mock: true`), about 70% likely synthetic, 30% likely real (0.5).
 - App: `app/` runs on macOS. Menu-bar wizard; drop or pick a file to check it; detects calls (Zoom, FaceTime, Teams, Discord, Slack, browsers holding the mic) and, once the user has opted in (asked once on the first call), records 12 s of the call app's output (macOS 14.2+) and sends it to the server as `source=call`, then highlights the call window purple (flagged) or green (likely real). File and call checks go to the server in `app/config.local.json` with an anonymous install id, unless a local mock is picked in the tray. Results are logged to `~/Library/Application Support/dispel-wizard/results.jsonl`.
 - NSA submission: TSV writer + validator in `hearsay/cli.py`; metric known (minDCF, see CHALLENGE.md). Test audio delivery still unknown.
 
@@ -24,9 +24,11 @@ Fill this in at kickoff. One owner per directory. The owner approves changes to 
 - Israel → Akash, David: approve INTERFACES.md 0.4 and the install-id decision in DECISIONS.md.
 - Israel → Akash, David: approve INTERFACES.md 0.5 (file-less call checks, 70/30 demo answers); David: review `app/src/main/analyzer.js` and one comment in `main.js` · israel/mock-verdict-mix
 - Akash: please review the AGENTS.md privacy-rule change (audio now goes to our Vultr server).
+- Israel → Akash, David: approve INTERFACES.md 0.6 and the Hugging Face stand-in decision in DECISIONS.md (`server/app/hf_model.py`). · israel/hf-model
 - Akash: put the v4p6 release on the Vultr volume (`/opt/dispel/models`) so the server stops serving mock data.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sat 20:45 · Israel (Claude) · server: Hugging Face stand-in detector (mo-thecreator/Deepfake-audio-detection, pinned) answers file and call checks when no hearsay release is loaded, instead of demo data; `server/tools/score_folder.py`; INTERFACES 0.6 · israel/hf-model
 - Sat 19:15 · David (Claude) · merged main (#13, #12): kept the app's real call capture + tray mock choice over the file-less 70/30 call path; server 70/30 mock and ml/ changes taken as is · david-frontend
 - Sat 19:00 · David (Claude) · demo/caller: video callers (`npm run setup-obs` builds OBS Idle + per-caller scenes and starts Virtual Camera); boss video wired in locally (clips gitignored); fixed obs.js crashing the rig when OBS is closed · david-frontend
 - Sat 18:45 · David (Claude) · app: one-time "Check my calls automatically?" opt-in (Settings checkbox too); after yes, each call is checked as it starts. AGENTS.md capture rule reworded · david-frontend
