@@ -30,7 +30,7 @@ const SIZE = {
   bubble: { width: 400, height: 380 }, // tall enough for the call alert's buttons
   // Call windows too narrow for the bubble beside the wizard (a phone): the bubble
   // stacks on top of a half-size wizard (wizard.css, the max-width media query).
-  stacked: { width: 240, height: 500 },
+  stacked: { width: 240, height: 410 }, // short enough that the wizard clears a phone's in-call buttons
 };
 const CALL_INSET = 12; // gap between the wizard and the call window's corner
 const EDGE = 40; // gap from the screen edge for the default desktop spot
@@ -190,6 +190,7 @@ const OVERLAY_PAD = 24; // must match the ring's inset + border in overlay.html
 // injected CSS, so the overlay page itself never runs scripts.
 const REAL_RING_CSS = `.glow {
   border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.12) !important;
   box-shadow: 0 0 14px 3px rgba(34, 197, 94, 0.75) !important;
   animation: none !important;
   opacity: 0.85;

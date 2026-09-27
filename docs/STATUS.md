@@ -40,6 +40,7 @@ Goal: make the wizard/witch feel present, and make "Yes, hang up" a spell: the c
 - Known gaps: the spell hits the call window's bounds even if other windows cover it (we bring the app to the front first; if activation is refused, it still lands on whatever is on top). Discord drops the mic for moments, so its call can "end" and "start" again mid-call, making new sessions. Sat 20:50: main merged in (real call listening from #15, HF model from #16); the PR goes against `main` and supersedes #14. David and Akash approve `app/` and INTERFACES.md.
 
 ## Log (newest first; one line each: time · who · what · branch/PR)
+- Sun · David (Claude) · app: call ring now fills the call window with a light tint (purple pulsing when flagged, green when likely real; overlay stays click-through); stacked wizard window 500→410 px tall so the wizard clears a phone's in-call buttons · david-frontend
 - Sun · David (Claude) · app: call windows too narrow for the side-by-side bubble (e.g. the call simulator's phone) get a stacked layout: bubble on top, half-size wizard under it (SIZE.stacked, wizard.css media query, --bubble-gap in placeBubble) · david-frontend
 - Sun · David (Claude) · demo/call-sim: the app is now an iPhone cutout (frameless transparent window, Recents list + call screens on the phone, drop files onto it as real/synthetic); file names no longer show the answer-key folder · david-frontend
 - Sun · David (Claude) · app: ⌘⇧2 (global) flips the wizard between 2D and 3D, same path as the "3D look" menu item (saved to prefs) · david-frontend
