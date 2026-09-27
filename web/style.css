@@ -1,58 +1,38 @@
-/* Hocus Pocus website. Same look as the desktop wizard's bubble (paper, ink outline, offset shadow)
-   on a night sky. Sprites come from app/Assets (served at /Assets/). */
+/* Hocus Pocus website: just the wizard (or witch), its speech bubble and one button. Buttons and the bubble follow
+   the look: chunky pixel blocks in 2D, soft lit shapes in 3D (html.look-3d). Sprites come from app/Assets. */
 
 :root {
-  --night: #1a1030;
-  --night-2: #2a1748;
-  --ink: #2a1740;
+  --bg: #17102a;
+  --ink: #181425; /* Endesga 32, the sprites' palette */
   --paper: #fffaf0;
+  --plum: #68386c;
+  --plum-hi: #b55088;
+  --plum-lo: #3e2137;
+  --gold: #feae34;
+  --gold-hi: #fee761;
+  --gold-lo: #f77622;
   --purple: #6b3fa0;
-  --lilac: #d9c2ff;
-  --gold: #fee761;
   --synthetic: #c0392b;
   --real: #2e7d32;
   --unsure: #2f6f9f;
-  --on-night: #efe8ff;
-  --on-night-muted: #b9aed6;
-  --shadow: 4px 4px 0 rgba(10, 4, 24, 0.55);
+  --on-bg: #efe8ff;
   --pixel: 'Pixelify Sans', ui-rounded, system-ui, sans-serif;
+  --px: 4px; /* one art pixel of chrome in the 2D look */
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(ellipse at 50% -10%, #3b2166 0%, var(--night-2) 35%, var(--night) 75%) fixed, var(--night);
-  color: var(--on-night);
+  background: var(--bg);
+  color: var(--on-bg);
   font: 16px/1.5 ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow-x: hidden;
 }
-
-/* A few twinkling stars, drawn with gradients so there are no extra requests. */
-.sky {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(1.5px 1.5px at 12% 18%, #fff 60%, transparent),
-    radial-gradient(1px 1px at 28% 72%, #fff 60%, transparent),
-    radial-gradient(2px 2px at 44% 12%, var(--gold) 60%, transparent),
-    radial-gradient(1px 1px at 63% 38%, #fff 60%, transparent),
-    radial-gradient(1.5px 1.5px at 78% 22%, var(--lilac) 60%, transparent),
-    radial-gradient(1px 1px at 88% 66%, #fff 60%, transparent),
-    radial-gradient(2px 2px at 8% 84%, var(--lilac) 60%, transparent),
-    radial-gradient(1px 1px at 52% 90%, #fff 60%, transparent),
-    radial-gradient(1.5px 1.5px at 94% 8%, #fff 60%, transparent),
-    radial-gradient(1px 1px at 36% 44%, var(--gold) 60%, transparent);
-  animation: twinkle 5s ease-in-out infinite alternate;
-}
-@keyframes twinkle { from { opacity: 0.55; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .sky { animation: none; } }
 
 .visually-hidden {
   position: absolute !important;
@@ -62,155 +42,152 @@ body {
   white-space: nowrap;
 }
 
-a { color: var(--gold); }
+/* ---------- buttons: pixel blocks (2D) ---------- */
 
-/* ---------- header ---------- */
+.pbtn {
+  --face: var(--plum);
+  --hi: var(--plum-hi);
+  --lo: var(--plum-lo);
+  display: inline-block;
+  margin: var(--px);
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--face);
+  color: #fff;
+  font: 500 16px/1 var(--pixel);
+  font-variant-ligatures: none;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  /* outline with notched corners, lit top-left, shaded bottom-right */
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) var(--lo),
+    inset var(--px) var(--px) var(--hi);
+}
+.pbtn:hover { filter: brightness(1.1); }
+.pbtn:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    inset var(--px) var(--px) var(--lo);
+}
+.pbtn:focus-visible, #file:focus-visible + .pbtn, .stage:focus-visible { outline: 3px dashed var(--gold-hi); outline-offset: 8px; }
+.pbtn:disabled { opacity: 0.5; cursor: default; filter: none; }
+.pbtn-gold { --face: var(--gold); --hi: var(--gold-hi); --lo: var(--gold-lo); color: var(--ink); }
+.pbtn-purple { --face: var(--purple); --hi: #8f63c9; --lo: #4a2a73; }
+.pbtn-big { padding: 14px 22px; font-size: 22px; }
+.pbtn-small { padding: 6px 10px; font-size: 14px; }
 
-.top {
-  position: relative;
+/* ---------- buttons: lit 3D shapes ---------- */
+
+.look-3d .pbtn {
+  margin: 0;
+  border-radius: 12px;
+  font: 700 15px/1 ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  letter-spacing: 0;
+  background: linear-gradient(180deg, var(--hi), var(--face) 55%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 5px 0 var(--lo), 0 9px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.look-3d .pbtn:active {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 0 var(--lo), 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+.look-3d .pbtn-big { font-size: 19px; padding: 15px 26px; border-radius: 16px; }
+.look-3d .pbtn-small { font-size: 13px; padding: 7px 12px; border-radius: 10px; }
+
+/* ---------- look switches (top-right) ---------- */
+
+.looks {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 18px 16px 0;
+  justify-content: flex-end;
+  gap: 8px;
 }
-.brand {
-  font: 500 28px/1 var(--pixel);
-  color: var(--on-night);
-  text-decoration: none;
-  letter-spacing: 0.02em;
-  text-shadow: 0 0 12px rgba(217, 194, 255, 0.45);
-}
-.looks { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 2px solid rgba(217, 194, 255, 0.45);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--on-night);
-  cursor: pointer;
-}
-.chip:hover { border-color: var(--lilac); }
-.chip[aria-pressed='true'] { background: rgba(217, 194, 255, 0.18); border-color: var(--lilac); }
+.looks .pbtn { font-size: 14px; padding: 6px 10px; }
+.look-3d .looks .pbtn { font-size: 13px; }
 
-/* ---------- hero ---------- */
-
-main { position: relative; max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+/* ---------- the character, centered, with the button under it ---------- */
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 24px;
-  min-height: min(calc(100vh - 80px), 760px);
-  padding: 24px 0 40px;
-  border-radius: 24px;
-  transition: box-shadow 0.2s, background 0.2s;
-}
-.hero.drop-hover {
-  background: rgba(217, 194, 255, 0.06);
-  box-shadow: inset 0 0 0 3px rgba(217, 194, 255, 0.5);
-}
-
-h1 {
-  margin: 0 0 16px;
-  font: 500 clamp(2.4rem, 6vw, 4.2rem)/1.05 var(--pixel);
-  letter-spacing: -0.01em;
-}
-.glow { color: var(--gold); text-shadow: 0 0 18px rgba(254, 231, 97, 0.45); }
-.lede { margin: 0 0 24px; font-size: 1.1rem; color: var(--on-night-muted); max-width: 34em; }
-.fine { margin: 16px 0 0; font-size: 13px; color: var(--on-night-muted); max-width: 34em; }
-.fine strong { color: var(--on-night); }
-
-/* ---------- buttons (as in the app) ---------- */
-
-.btn {
-  display: inline-block;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 7px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--ink);
-  box-shadow: 2px 2px 0 rgba(42, 23, 64, 0.35);
-  text-decoration: none;
-  cursor: pointer;
-}
-.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(42, 23, 64, 0.35); }
-.btn:focus-visible, .chip:focus-visible, .stage:focus-visible, input:focus-visible + .btn { outline: 3px solid var(--gold); outline-offset: 2px; }
-.btn-yes { background: var(--purple); border-color: var(--purple); color: #fff; }
-.btn-big {
-  font: 500 21px/1 var(--pixel);
-  padding: 14px 22px;
-  border-radius: 12px;
-  border-color: var(--paper);
-  background: var(--gold);
-  color: var(--ink);
-  box-shadow: var(--shadow);
-}
-.btn-big:hover { filter: brightness(1.05); }
-#file:focus-visible + .btn-big { outline: 3px solid var(--lilac); outline-offset: 3px; }
-
-/* ---------- the wizard and its bubble ---------- */
-
-.scene {
-  position: relative;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-height: 380px;
+  gap: 20px;
+  min-height: 100vh;
+  padding: 72px 16px 40px;
+  transition: background 0.2s;
 }
+.hero.drop-hover { background: radial-gradient(circle at 50% 45%, rgba(181, 80, 136, 0.18), transparent 60%); }
+
+.scene { position: relative; }
 
 .stage {
-  flex: none;
+  display: block;
   width: 240px; /* 320x480 canvas at 3 CSS px per art pixel */
   height: 360px;
   image-rendering: pixelated;
   cursor: pointer;
-  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.45));
   transition: filter 0.3s;
 }
 .look-3d .stage { image-rendering: auto; }
 .drop-hover .stage { filter: drop-shadow(0 0 10px #b78cff) drop-shadow(0 0 3px #fff); }
 
+/* The bubble hangs to the left of the character, so the character itself stays centered. */
 .bubble {
-  position: relative;
-  order: -1; /* left of the wizard */
-  align-self: flex-start;
-  margin-top: 20px;
-  width: 260px;
-  padding: 12px 14px 12px;
+  position: absolute;
+  right: calc(100% + 4px);
+  top: 36px;
+  width: 250px;
+  padding: 12px 14px;
   background: var(--paper);
   color: var(--ink);
-  border: 3px solid var(--ink);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
   animation: pop 0.18s ease-out;
+  box-shadow:
+    0 calc(-1 * var(--px)) var(--ink), 0 var(--px) var(--ink),
+    calc(-1 * var(--px)) 0 var(--ink), var(--px) 0 var(--ink),
+    var(--px) calc(2 * var(--px)) rgba(0, 0, 0, 0.35);
 }
-.bubble::after {
+.bubble::after { /* a stepped pixel tail */
   content: '';
   position: absolute;
-  right: -17px;
-  bottom: 26px;
-  border: 8px solid transparent;
-  border-left: 12px solid var(--ink);
+  right: calc(-3 * var(--px));
+  top: 42px;
+  width: calc(2 * var(--px));
+  height: calc(2 * var(--px));
+  background: var(--ink);
+  box-shadow: var(--px) var(--px) 0 var(--ink), 0 var(--px) 0 var(--ink);
 }
-@keyframes pop { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.look-3d .bubble {
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 -3px 0 rgba(42, 23, 64, 0.08);
+}
+.look-3d .bubble::after {
+  right: -9px;
+  width: 0;
+  height: 0;
+  background: none;
+  box-shadow: none;
+  border: 9px solid transparent;
+  border-left: 10px solid var(--paper);
+  border-right: 0;
+}
+@keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 .bubble-title { margin: 0 0 6px; font-size: 16px; font-weight: 800; line-height: 1.25; }
 .bubble-note { margin: 6px 0 0; font-size: 12px; line-height: 1.35; opacity: 0.75; }
 .bubble-note:empty { display: none; }
-.bubble-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.bubble-actions .btn { font-size: 13px; padding: 5px 10px; }
+.bubble-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
 .bubble-score { display: flex; align-items: flex-end; gap: 2px; margin: 4px 0 2px; }
 .digits { display: inline-flex; gap: 3px; }
@@ -230,7 +207,7 @@ h1 {
 
 /* ---------- evidence report ---------- */
 
-.report { padding: 8px 0 48px; scroll-margin-top: 16px; }
+.report { max-width: 960px; margin: 0 auto; padding: 8px 16px 64px; scroll-margin-top: 16px; }
 .card {
   background: var(--paper);
   color: var(--ink);
@@ -330,44 +307,19 @@ h1 {
 .limits { margin: 8px 0 0; padding-left: 20px; }
 .limits li { margin: 4px 0; }
 .report-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.card { color: var(--ink); }
 
-/* ---------- learn ---------- */
 
-.learn { padding: 24px 0 56px; scroll-margin-top: 16px; }
-.learn h2 { margin: 0 0 4px; font: 500 clamp(1.8rem, 4vw, 2.4rem)/1.1 var(--pixel); }
-.learn > .muted { color: var(--on-night-muted); margin: 0 0 20px; }
-.lessons { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }
-.lesson {
-  background: var(--paper);
-  color: var(--ink);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  padding: 16px;
-}
-.lesson h3 { margin: 0 0 8px; font: 500 1.3rem/1.2 var(--pixel); }
-.lesson-text { margin: 0 0 12px; min-height: 7.5em; font-size: 15px; }
-.lesson-nav { display: flex; align-items: center; gap: 8px; }
-.lesson-page { flex: 1; text-align: center; font-size: 12px; font-weight: 700; opacity: 0.6; }
-.lesson-nav .btn { font-size: 13px; padding: 4px 10px; }
-.lesson-nav .btn:disabled { opacity: 0.4; cursor: default; }
+/* ---------- narrow screens: bubble above the character ---------- */
 
-/* ---------- footer ---------- */
-
-.foot { max-width: 1080px; margin: 0 auto; padding: 24px 16px 40px; border-top: 1px solid rgba(217, 194, 255, 0.2); text-align: center; }
-.foot p { margin: 4px 0; }
-.foot .muted { color: var(--on-night-muted); }
-
-/* ---------- narrow screens: wizard on top, bubble under it ---------- */
-
-@media (max-width: 800px) {
-  .hero { grid-template-columns: 1fr; min-height: 0; text-align: center; padding-top: 16px; }
-  .intro { order: 2; }
-  .lede, .fine { margin-left: auto; margin-right: auto; }
-  .scene { flex-direction: column; align-items: center; min-height: 0; }
+@media (max-width: 760px) {
+  .looks { position: static; justify-content: center; padding: 16px 16px 0; }
+  .hero { min-height: calc(100vh - 60px); padding-top: 16px; }
+  .scene { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .bubble { position: relative; right: auto; top: auto; width: min(100%, 320px); }
+  .bubble::after { right: auto; top: auto; bottom: calc(-3 * var(--px)); left: 50%; }
+  .look-3d .bubble::after { right: auto; left: 50%; bottom: -9px; margin-left: -9px; border: 9px solid transparent; border-top: 10px solid var(--paper); border-bottom: 0; }
   .stage { width: 160px; height: 240px; } /* 2 CSS px per art pixel */
-  .bubble { order: 2; align-self: center; margin-top: 0; width: min(100%, 340px); text-align: left; }
-  .bubble::after { right: auto; left: 50%; bottom: auto; top: -17px; margin-left: -8px; border: 8px solid transparent; border-bottom: 12px solid var(--ink); }
   .seg { grid-template-columns: 70px 1fr 42px; }
   .band .long { display: none; }
   .band .short { display: inline; }
@@ -375,4 +327,4 @@ h1 {
 }
 
 /* Last, because the `font` shorthands above reset it: Pixelify's fi/fl ligatures blur letters together. */
-.brand, h1, h2, h3, .btn-big, .meter-num span { font-variant-ligatures: none; }
+h1, h2, h3, .meter-num span { font-variant-ligatures: none; }

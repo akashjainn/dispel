@@ -15,29 +15,14 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="sky" aria-hidden="true"></div>
 
-<header class="top">
-  <a class="brand" href="/">Hocus&nbsp;Pocus</a>
-  <div class="looks" role="group" aria-label="Look">
-    <button id="character" class="chip" type="button" aria-pressed="false">Turn into a witch</button>
-    <button id="style3d" class="chip" type="button" aria-pressed="false">3D look</button>
-    <button id="sound" class="chip" type="button" aria-pressed="true">Voice on</button>
-  </div>
-</header>
+<nav class="looks" aria-label="Look">
+  <button id="character" class="pbtn" type="button" aria-pressed="false">Turn into a witch</button>
+  <button id="style3d" class="pbtn" type="button" aria-pressed="false">Switch to 3D</button>
+</nav>
 
 <main>
   <section class="hero" id="drop-zone">
-    <div class="intro">
-      <h1>Is that voice <span class="glow">likely&nbsp;AI</span>?</h1>
-      <p class="lede">Drop a voice clip on the <span id="who">wizard</span>. It listens, stirs the cauldron, and tells you how likely the voice is synthetic, and why.</p>
-      <label class="btn btn-big" for="file">Choose an audio file</label>
-      <input id="file" type="file" class="visually-hidden"
-        accept=".wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.webm,.mp4,.mov,audio/*">
-      <p class="fine">wav, mp3, m4a, flac, ogg, webm, or a video's audio · 1 s to 2 min · up to 25 MB.
-        Your file is <strong>sent to our server</strong> to be checked, then deleted. We don't keep it.</p>
-    </div>
-
     <div class="scene">
       <div id="bubble" class="bubble" aria-live="polite">
         <p id="bubble-title" class="bubble-title"></p>
@@ -47,13 +32,15 @@
         </div>
         <p id="bubble-note" class="bubble-note"></p>
         <div id="bubble-actions" class="bubble-actions" hidden>
-          <button id="see-evidence" class="btn btn-yes" type="button">See the evidence</button>
-          <button id="again" class="btn" type="button">Check another</button>
+          <button id="see-evidence" class="pbtn pbtn-small pbtn-purple" type="button">See the evidence</button>
         </div>
       </div>
       <canvas id="stage" class="stage" width="320" height="480" tabindex="0" role="button"
         aria-label="The wizard. Click to choose an audio file, or drop one here."></canvas>
     </div>
+    <input id="file" type="file" class="visually-hidden"
+      accept=".wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.webm,.mp4,.mov,audio/*">
+    <label class="pbtn pbtn-gold pbtn-big" for="file">Choose an audio file</label>
   </section>
 
   <section id="report" class="report" hidden aria-labelledby="report-title">
@@ -104,28 +91,17 @@
       <ul id="limits" class="limits"></ul>
 
       <div class="report-actions">
-        <button id="again-2" class="btn btn-yes" type="button">Check another clip</button>
-        <a class="btn" href="#learn">How do these scams work?</a>
+        <button id="again-2" class="pbtn pbtn-gold" type="button">Check another clip</button>
       </div>
     </div>
   </section>
 
-  <section id="learn" class="learn" aria-labelledby="learn-title">
-    <h2 id="learn-title">Learn the tricks</h2>
-    <p class="muted">Voice-cloning scams are rising. A few minutes here can protect you and the people you love.</p>
-    <div id="lessons" class="lessons"></div>
-  </section>
 </main>
 
-<footer class="foot">
-  <p><strong>Team Gemini</strong> · HackGT 13 · Also a desktop wizard that checks your calls.</p>
-  <p class="muted small">A likelihood, not proof. Non-commercial research demo.</p>
-</footer>
 
 <script src="/shared/sprites.js"></script>
 <script src="/shared/magic.js"></script>
 <script src="/shared/voice.js"></script>
-<script src="/shared/lessons.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

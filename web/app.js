@@ -67,8 +67,8 @@ function applyLook(l) {
   const other = l.character === 'wizard' ? 'witch' : 'wizard';
   $('character').textContent = `Turn into a ${other}`;
   $('character').setAttribute('aria-pressed', String(l.character === 'witch'));
+  $('style3d').textContent = l.style === '3d' ? 'Switch to 2D' : 'Switch to 3D';
   $('style3d').setAttribute('aria-pressed', String(l.style === '3d'));
-  $('who').textContent = l.character;
   $('stage').setAttribute('aria-label', `The ${l.character}. Click to choose an audio file, or drop one here.`);
 }
 applyLook(look);
@@ -113,24 +113,11 @@ $('character').addEventListener('click', () =>
 );
 $('style3d').addEventListener('click', () => changeLook({ ...look, style: look.style === '3d' ? '2d' : '3d' }));
 
-// ---------- voice lines (app/Assets/voice), only at big moments and only if sound is on ----------
+// ---------- voice lines (app/Assets/voice), only at big moments ----------
 
 const voice = new Voice(() => look.character);
-let soundOn = prefs.sound !== false;
-function renderSound() {
-  $('sound').textContent = soundOn ? 'Voice on' : 'Voice off';
-  $('sound').setAttribute('aria-pressed', String(soundOn));
-}
-renderSound();
-$('sound').addEventListener('click', () => {
-  soundOn = !soundOn;
-  prefs.sound = soundOn;
-  savePrefs();
-  if (!soundOn) voice.stop();
-  renderSound();
-});
-const say = (...lines) => soundOn && voice.say(...lines);
-const sayNow = (...lines) => soundOn && voice.interrupt(...lines);
+const say = (...lines) => voice.say(...lines);
+const sayNow = (...lines) => voice.interrupt(...lines);
 const VERDICT_LINES = { likely_synthetic: ['reveal', 'snark'], likely_real: ['real'], inconclusive: ['unsure'] };
 
 // ---------- the speech bubble ----------
@@ -187,7 +174,7 @@ const idleText = () => ({
   title: `Drop a voice clip on me, or click me to pick one.`,
   note: health?.mock
     ? 'Heads up: my detection model isn’t connected right now, so answers are demo data.'
-    : 'I’ll tell you how likely it is that the voice was made by AI.',
+    : 'I send it to our server to check, then it’s deleted.',
 });
 
 function setMode(next, state = {}) {
@@ -347,7 +334,6 @@ const again = () => {
   idle();
   pickFile();
 };
-$('again').addEventListener('click', again);
 $('again-2').addEventListener('click', again);
 $('see-evidence').addEventListener('click', () => $('report').scrollIntoView({ block: 'start' }));
 
@@ -472,30 +458,6 @@ function renderReport(res, name) {
   $('report').hidden = false;
 }
 
-// ---------- learn: the app's lessons, one short page at a time ----------
-
-function renderLessons() {
-  const box = $('lessons');
-  for (const key of LESSON_TOPICS) {
-    const { title, pages } = LESSONS[key];
-    let page = 0;
-    const text = el('p', { className: 'lesson-text' });
-    const count = el('span', { className: 'lesson-page' });
-    const back = el('button', { className: 'btn', type: 'button', textContent: 'Back' });
-    const next = el('button', { className: 'btn btn-yes', type: 'button', textContent: 'Next' });
-    const draw = () => {
-      text.textContent = pages[page];
-      count.textContent = `${page + 1} / ${pages.length}`;
-      back.disabled = page === 0;
-      next.disabled = page === pages.length - 1;
-    };
-    back.addEventListener('click', () => { page = Math.max(0, page - 1); draw(); });
-    next.addEventListener('click', () => { page = Math.min(pages.length - 1, page + 1); draw(); });
-    draw();
-    box.append(el('article', { className: 'lesson' }, el('h3', { textContent: title }), text, el('div', { className: 'lesson-nav' }, back, count, next)));
-  }
-}
-renderLessons();
 
 // ---------- start ----------
 
