@@ -90,7 +90,7 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
 ## Model facts (don't contradict these in code, UI copy, or the pitch)
 
 - The release (**v5c**) scores with the neural detector alone (profile `nn`): XLS-R 300M fine-tuned end to end on
-  a diverse real/synthetic mix (DiffSSD, ElevenLabs incl. consenting teammates' clones, commercial TTS APIs, MLAAD,
+  a diverse real/synthetic mix (DiffSSD, ElevenLabs incl. clones of consenting HackGT volunteers, commercial TTS APIs, MLAAD,
   DFADD, VCTK, YouTube and People's Speech reals), with stretch, noise and codec augmentation. The release pins the
   profile (`"profile_override": "nn"` in `hearsay.json`), so the server and the NSA TSV score identically. Prosody,
   spectral, voice and rhythm still run in the app and are reported as evidence (`role: "evidence"`,
@@ -108,7 +108,7 @@ docs/               STATUS.md, INTERFACES.md, DECISIONS.md, CHALLENGE.md, exampl
     the threshold that flags 1% of VCTK reals). Every model we tried has this problem.
   - Heavy phase-vocoder time-stretching: the v5c network alone scores minDCF 0.39 on stretched DiffSSD validation
     (0.03 clean, 0.07 with ffmpeg atempo). The retired six-analyzer fusion handled this case better (0.09).
-  - Instant voice clones of real people remain the hardest case: on consenting teammates' held-out ElevenLabs clones
+  - Instant voice clones of real people remain the hardest case: on consenting HackGT volunteers' held-out ElevenLabs clones
     v5c scores minDCF 0.18 (v4: 0.48). Numbers: `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`.
 
 ## UI and copy rules

@@ -63,12 +63,12 @@ flowchart TD
         R2["TalkingFace YouTube vloggers · 6%"]
         R3["Unsupervised People's Speech, English only<br/>(Whisper language ID + ASR check) · 5%"]
         R4["ElevenLabs Voice Isolator-cleaned reals · 5%"]
-        R5["VCTK · YouTube · consenting teammates · 3% each"]
+        R5["VCTK · YouTube · consenting HackGT volunteers · 3% each"]
         R6["v2 mix: In-the-Wild, ASVspoof 5, ... · 35%"]
     end
     subgraph FAKE["Synthetic speech (sampling share within the fake class)"]
         F1["DiffSSD fakes, incl. 80% of its test split · 35%"]
-        F2["ElevenLabs: TTS models, instant clones of consenting<br/>teammates, voice changer, voice design · 15%"]
+        F2["ElevenLabs: TTS models, instant clones of consenting<br/>HackGT volunteers, voice changer, voice design · 15%"]
         F3["Commercial TTS: 18 API systems from MLAAD (OpenAI, Gemini,<br/>Cartesia, MiniMax, ...) + Grok, Polly, Speechify, Hume · 12%"]
         F4["new MLAAD systems · DFADD · 3% each"]
         F5["F5-TTS clones · Kokoro · 2% each"]
@@ -82,7 +82,7 @@ flowchart TD
 ```
 
 Held out from training entirely, so they give honest numbers: 4 MLAAD systems (Higgs-Audio-V3, Index-TTS-2.0,
-Step-Audio-EditX, supertonic-3), 6 Grok voices, a speaker-disjoint set of teammates (real voices and their clones),
+Step-Audio-EditX, supertonic-3), 6 Grok voices, a speaker-disjoint set of HackGT volunteers (real voices and their clones),
 20% of DiffSSD's test split, and a slice of every other source. Epoch 3 was checked on DiffSSD validation only
 (slightly worse), so it was not a candidate.
 
@@ -115,10 +115,10 @@ minDCF with P(synthetic) = 0.3 and a false alarm costing 4x a miss (the challeng
 | same: EER | 4.03% | **2.86%** |
 | same: minDCF | 0.191 | **0.157** |
 | ElevenLabs, mixed methods, vs VCTK reals | 0.237 | **0.087** |
-| Consenting teammates' instant clones vs VCTK reals | 0.480 | **0.180** |
+| Consenting HackGT volunteers' instant clones vs VCTK reals | 0.480 | **0.180** |
 | 4 MLAAD systems never seen | 0.007 | **0.000** |
 | New clips we generated from the Gemini (13) and Inworld (61) APIs after training* | n/a | **0.000** |
-| Teammates' real recordings flagged at VCTK's 1% false-alarm threshold | n/a | **0** |
+| Volunteers' real recordings flagged at VCTK's 1% false-alarm threshold | n/a | **0** |
 | Isolator-cleaned real speech flagged at the same threshold | 41% | 47% |
 
 \* The clips are new, but both systems appear in MLAAD's commercial set, which v5c trained on. This row shows that
