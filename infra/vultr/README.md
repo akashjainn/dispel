@@ -67,4 +67,13 @@ ssh root@<ip> 'cd /opt/dispel && docker compose -f compose.prod.yml restart serv
 ## Notes
 - Plan id `vc2-4c-8gb` (atl, ~$0.06/hr) and os_id `2284` were verified with `vultr-cli` on 2026-09-26.
 - State (in HCP Terraform) contains the server API key; only people in the HCP org can read it.
-- Without `domain`, TLS uses `<ip-with-dashes>.sslip.io` (Let's Encrypt via Caddy).
+- TLS: Caddy always serves `<ip-with-dashes>.sslip.io` (Let's Encrypt), which the deploy health check uses.
+
+## Domain (hocuspocus.tech)
+Registered at get.tech; Vultr hosts the DNS (`dns.tf`): `hocuspocus.tech`, `www` and `api` are A records to the server's
+IP (TTL 300), and they follow the server through a `replace_server`. `base_url` is `https://api.hocuspocus.tech`.
+1. Actions -> infra -> Run workflow -> `apply` (creates the zone and records; no server change).
+2. At get.tech: DNS -> Nameservers -> Edit nameservers -> `ns1.vultr.com`, `ns2.vultr.com` (remove the orderbox ones).
+3. Wait for it: `dig +short NS hocuspocus.tech` shows Vultr, `dig +short api.hocuspocus.tech` shows the IP.
+4. Caddy gets the certificates by itself (it retries until DNS points here): `curl https://api.hocuspocus.tech/health`.
+The domain in Caddy comes from `docker/remote-deploy.sh` (`DOMAIN` in the server's `.env` overrides it).

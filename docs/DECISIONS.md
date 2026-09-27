@@ -132,3 +132,6 @@
   audio": they are UI sound effects, not recordings of anyone, and every teammate needs them for the demo. `.gitignore`
   allows only `app/Assets/voice/*/*.mp3`; AGENTS.md says so. Voices, model and script: `app/Assets/voice/README.md`.
   Lines say "likely synthetic" / "likely real", never "fake" or "real" as a certainty. (israel/wizard-voice)
+- **Sat 23:30. Domain hocuspocus.tech, DNS on Vultr (Israel):** registered at get.tech, nameservers ns1/ns2.vultr.com;
+  the zone and records are Terraform (`infra/vultr/dns.tf`) so they follow the server's IP. Apex is for the web upload
+  app, `api.` is the API base; for now all three reach the same Caddy. The sslip.io name keeps working (health check, old configs).
