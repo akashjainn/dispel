@@ -94,3 +94,80 @@ def test_bad_client_id_and_source(data_dir):
 
 def test_video_container_accepted():
     assert client.post("/analyze", files={"file": ("call.mp4", b"xxxx", "video/mp4")}).status_code == 200
+
+
+@pytest.mark.parametrize("roll,verdict", [(0.1, "likely_synthetic"), (0.9, "likely_real")])
+def test_mock_verdict_mix(monkeypatch: pytest.MonkeyPatch, roll, verdict):
+    import app.main as m
+    monkeypatch.setattr(m.random, "random", lambda: roll)
+    body = client.post("/analyze", files=FILE).json()
+    assert body["mock"] is True and body["overall"]["verdict"] == verdict
+    total = sum(a["llr_contribution"] for a in body["analyzers"])
+    assert abs(total - body["overall"]["llr"]) < 0.02
+
+
+def test_mock_is_mostly_synthetic():
+    import app.main as m
+    m.random.seed(0)
+    verdicts = [client.post("/analyze", files=FILE).json()["overall"]["verdict"] for _ in range(300)]
+    assert 0.6 < verdicts.count("likely_synthetic") / len(verdicts) < 0.8
+    assert set(verdicts) == {"likely_synthetic", "likely_real"}
+
+
+def test_call_without_audio_gets_mock():
+    r = client.post("/analyze", data={"source": "call"})
+    assert r.status_code == 200 and r.json()["mock"] is True
+    assert client.post("/analyze", data={"source": "file"}).json()["error"] == "bad_request"
+
+
+class FakeHF:
+    """Stands in for hf_model.HFDetector (no torch in the test env)."""
+    name, release = "hf:org/model", "abc1234"
+
+    def analyze(self, data, prior):
+        return {"model": {"name": self.name, "release": self.release}, "duration_s": 4.0,
+                "overall": {"llr": 3.0, "prior": prior, "probability": 0.95, "verdict": "likely_synthetic"},
+                "segments": [{"start_s": 0.0, "end_s": 4.0, "llr": 3.0, "probability": 0.95}],
+                "analyzers": [{"name": "hf_detector", "ran": True, "finding": "x", "llr_contribution": 3.0, "ms": 1}],
+                "limitations": ["x"]}
+
+
+@pytest.fixture
+def hf(monkeypatch: pytest.MonkeyPatch):
+    import app.main as m
+    monkeypatch.setattr(m, "_HF", FakeHF())
+    monkeypatch.setattr(m, "_PIPE", None)
+
+
+def test_hf_stand_in_answers_checks(hf):
+    body = client.get("/health").json()
+    assert body["mock"] is False and body["model"] == "hf:org/model"
+    r = client.post("/analyze", files=FILE).json()
+    assert r["mock"] is False and r["model"]["name"] == "hf:org/model" and r["version"] == body["version"]
+
+
+def test_hf_stand_in_rejects_call_without_audio(hf):
+    r = client.post("/analyze", data={"source": "call"})
+    assert r.status_code == 400 and r.json()["error"] == "too_short"
+
+
+def test_hf_not_loaded_when_pipeline_is(monkeypatch: pytest.MonkeyPatch):
+    import app.main as m
+    monkeypatch.setattr(m, "_PIPE", object())
+    monkeypatch.setattr(m, "_HF", None)
+    monkeypatch.setenv("HF_MODEL", "org/model")
+    m._load_hf()  # returns before importing torch
+    assert m._HF is None
+
+
+def test_hf_load_error_is_reported(monkeypatch: pytest.MonkeyPatch):
+    import sys
+    import app.main as m
+    monkeypatch.setattr(m, "_PIPE", None)
+    monkeypatch.setattr(m, "_HF", None)
+    monkeypatch.setattr(m, "_LOAD_ERRS", [])
+    monkeypatch.setenv("HF_MODEL", "org/model")
+    monkeypatch.setitem(sys.modules, "app.hf_model", None)  # import fails like a missing dependency
+    m._load_hf()
+    body = client.get("/health").json()
+    assert body["mock"] is True and "org/model" in body["load_error"]

@@ -1,10 +1,14 @@
-// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.4).
+// Produces AnalyzeResponse objects (docs/INTERFACES.md v0.5).
 //
-// File checks go to the server (POST /analyze) when a server URL is set in
-// config.js; while the server has no model it answers with demo data
-// (`mock: true`). Without a server URL, and for calls (no audio is captured
-// yet), the result is a local MOCK that flags the audio as likely synthetic
-// after a short delay that stands in for inference time.
+// Where results come from is picked in the tray's "Results from" menu:
+//   server     (default) checks go to POST /analyze on the server in
+//              config.local.json. Files are uploaded when dropped or picked;
+//              calls upload the few seconds the wizard was asked to listen to
+//              (source=call, see callcapture.js). While the server has no
+//              model it answers with demo data (`mock: true`).
+//   real       local MOCK that says "likely real" (2-14%) after a short delay
+//   synthetic  local MOCK that says "likely synthetic" (86-98%)
+// DISPEL_RESULTS=real|synthetic picks a mock at launch (demos, tests).
 //
 // Errors thrown here carry `userMessage`, which the wizard shows as-is.
 
@@ -13,7 +17,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { loadConfig, clientId } = require('./config');
 
-const MOCK_LATENCY_MS = { file: 2500, call: 3500 };
+const MOCK_LATENCY_MS = { file: 2500, call: 3500 }; // mocks don't record, so a call answers sooner
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // server limit (INTERFACES.md)
 const REQUEST_TIMEOUT_MS = 90_000; // CPU inference on a 2-minute clip, plus upload
 
@@ -29,6 +33,13 @@ function verdictFor(probability) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const RESULT_SOURCES = ['server', 'real', 'synthetic'];
+let resultSource = RESULT_SOURCES.includes(process.env.DISPEL_RESULTS) ? process.env.DISPEL_RESULTS : 'server';
+const getResultSource = () => resultSource;
+function setResultSource(v) {
+  if (RESULT_SOURCES.includes(v)) resultSource = v;
+}
+
 function userError(userMessage, detail) {
   const err = new Error(detail || userMessage);
   err.userMessage = userMessage;
@@ -39,10 +50,12 @@ async function mockAnalyze(source) {
   const started = Date.now();
   await sleep(MOCK_LATENCY_MS[source]);
 
-  const probability = Math.round((0.86 + Math.random() * 0.12) * 1000) / 1000;
+  // real: 2-14%, synthetic: 86-98%, so the verdict is never borderline.
+  const base = resultSource === 'synthetic' ? 0.86 : 0.02;
+  const probability = Math.round((base + Math.random() * 0.12) * 1000) / 1000;
   const llr = Math.log(probability / (1 - probability));
   return {
-    version: '0.4',
+    version: '0.5',
     clip_id: crypto.randomUUID(),
     duration_s: null,
     input: null,
@@ -67,12 +80,12 @@ const SERVER_ERRORS = {
 };
 
 async function remoteAnalyze(source, filePath, { serverUrl, apiKey }) {
+  const form = new FormData();
   const { size } = await fs.stat(filePath);
   if (size > MAX_UPLOAD_BYTES) throw userError(SERVER_ERRORS.too_long);
-
-  // Uploaded only because the user dropped or picked this file, and only to
-  // our own server, which deletes it after answering (AGENTS.md).
-  const form = new FormData();
+  // Uploaded only because the user dropped or picked this file, or asked the
+  // wizard to listen to a call, and only to our own server, which deletes it
+  // after answering (AGENTS.md).
   form.append('file', new Blob([await fs.readFile(filePath)]), path.basename(filePath));
   form.append('source', source);
   const headers = { 'X-Dispel-Client': clientId() };
@@ -100,11 +113,17 @@ async function remoteAnalyze(source, filePath, { serverUrl, apiKey }) {
   return body;
 }
 
-// source: "file" | "call". filePath is required for "file".
+// source: "file" | "call". filePath is the clip to upload (a call's is the
+// temporary recording from callcapture.js). Mocks never read it.
 async function analyze(source, filePath) {
+  if (resultSource !== 'server') return mockAnalyze(source);
   const config = loadConfig();
-  if (source === 'file' && config.serverUrl) return remoteAnalyze(source, filePath, config);
-  return mockAnalyze(source);
+  if (!config.serverUrl) {
+    throw userError('I’m not connected to a server. Add it to app/config.local.json, or pick a mock in the tray menu.');
+  }
+  return remoteAnalyze(source, filePath, config);
 }
 
-module.exports = { analyze, verdictFor, SYNTHETIC_AT };
+const usesServer = () => resultSource === 'server';
+
+module.exports = { analyze, usesServer, verdictFor, SYNTHETIC_AT, getResultSource, setResultSource };

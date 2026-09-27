@@ -6,6 +6,7 @@
   "main": "src/main/main.js",
   "scripts": {
     "build:callwatch": "mkdir -p bin && swiftc -O native/callwatch.swift -o bin/callwatch",
+    "build:callcapture": "mkdir -p bin && swiftc -O native/callcapture.swift -o bin/callcapture",
     "prestart": "node scripts/prestart.js",
     "start": "electron ."
   },

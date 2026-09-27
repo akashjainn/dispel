@@ -1,0 +1,5 @@
+scenarios.local.json
+.token
+clips/*
+!clips/README.md
+bin/

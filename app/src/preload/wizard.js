@@ -3,11 +3,18 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('wizard', {
   onState: (cb) => ipcRenderer.on('wizard:state', (_e, state) => cb(state)),
+  onLook: (cb) => ipcRenderer.on('wizard:look', (_e, look) => cb(look)),
   pickFile: () => ipcRenderer.send('wizard:pick-file'),
   dismissBubble: () => ipcRenderer.send('wizard:dismiss-bubble'),
   endCall: () => ipcRenderer.send('wizard:end-call'),
+  listen: () => ipcRenderer.send('wizard:listen'),
+  autoCheck: (yes) => ipcRenderer.send('wizard:auto-check', yes),
+  notify: () => ipcRenderer.send('wizard:notify'),
+  learn: (topic) => ipcRenderer.send('wizard:learn', topic),
+  contextMenu: () => ipcRenderer.send('wizard:context-menu'),
   vanished: () => ipcRenderer.send('wizard:vanished'),
   drag: (phase, x, y) => ipcRenderer.send('wizard:drag', phase, x, y),
+  blastFire: (x, y) => ipcRenderer.send('wizard:blast-fire', x, y), // the hang-up spell left the wand at (x, y)
 });
 
 // Dropped files are handled here, not in the page: a File passed through
