@@ -28,7 +28,7 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background: radial-gradient(ellipse at 50% -10%, #3b2166 0%, #2a1748 35%, var(--bg) 75%) fixed, var(--bg);
   color: var(--on-bg);
   font: 16px/1.5 ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow-x: hidden;
@@ -40,6 +40,41 @@ body {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* A few twinkling stars, drawn with gradients so there are no extra requests. */
+.sky {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 28% 72%, #fff 60%, transparent),
+    radial-gradient(2px 2px at 44% 12%, var(--gold-hi) 60%, transparent),
+    radial-gradient(1px 1px at 63% 38%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 78% 22%, #d9c2ff 60%, transparent),
+    radial-gradient(1px 1px at 88% 66%, #fff 60%, transparent),
+    radial-gradient(2px 2px at 8% 84%, #d9c2ff 60%, transparent),
+    radial-gradient(1px 1px at 52% 90%, #fff 60%, transparent),
+    radial-gradient(1.5px 1.5px at 94% 8%, #fff 60%, transparent),
+    radial-gradient(1px 1px at 36% 44%, var(--gold-hi) 60%, transparent);
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: 0.55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sky { animation: none; } }
+
+/* The logo, top-left (the look switches sit top-right). */
+.brand {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  z-index: 20;
+  font: 500 28px/1 var(--pixel);
+  font-variant-ligatures: none;
+  letter-spacing: 0.02em;
+  color: var(--on-bg);
+  text-decoration: none;
+  text-shadow: 0 0 12px rgba(217, 194, 255, 0.45);
 }
 
 /* ---------- buttons: pixel blocks (2D) ---------- */
@@ -313,7 +348,8 @@ body {
 /* ---------- narrow screens: bubble above the character ---------- */
 
 @media (max-width: 760px) {
-  .looks { position: static; justify-content: center; padding: 16px 16px 0; }
+  .brand { position: static; display: block; text-align: center; padding-top: 20px; }
+  .looks { position: static; justify-content: center; padding: 14px 16px 0; }
   .hero { min-height: calc(100vh - 60px); padding-top: 16px; }
   .scene { display: flex; flex-direction: column; align-items: center; gap: 16px; }
   .bubble { position: relative; right: auto; top: auto; width: min(100%, 320px); }
