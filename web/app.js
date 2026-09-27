@@ -67,9 +67,7 @@ function applyLook(l) {
   const other = l.character === 'wizard' ? 'witch' : 'wizard';
   $('character').textContent = `Turn into a ${other}`;
   $('character').setAttribute('aria-pressed', String(l.character === 'witch'));
-  $('style3d').textContent = l.style === '3d' ? 'Switch to 2D' : 'Switch to 3D';
-  $('style3d').setAttribute('aria-pressed', String(l.style === '3d'));
-  $('stage').setAttribute('aria-label', `The ${l.character}. Click to choose an audio file, or drop one here.`);
+  $('stage').setAttribute('aria-label', `The ${l.character}. Click to switch to the ${l.style === '3d' ? '2D' : '3D'} look.`);
 }
 applyLook(look);
 
@@ -78,11 +76,11 @@ let lookChange = 0;
 
 async function changeLook(next) {
   const id = ++lookChange;
-  $('character').disabled = $('style3d').disabled = true;
+  $('character').disabled = true;
   try {
     await loadLook(next);
   } finally {
-    $('character').disabled = $('style3d').disabled = false;
+    $('character').disabled = false;
   }
   if (id !== lookChange) return;
   stage.finishSweep();
@@ -111,11 +109,45 @@ async function changeLook(next) {
 $('character').addEventListener('click', () =>
   changeLook({ ...look, character: look.character === 'wizard' ? 'witch' : 'wizard' }),
 );
-$('style3d').addEventListener('click', () => changeLook({ ...look, style: look.style === '3d' ? '2d' : '3d' }));
+const toggleStyle = () => changeLook({ ...look, style: look.style === '3d' ? '2d' : '3d' });
 
 // ---------- voice lines (app/Assets/voice), only at big moments ----------
 
-const voice = new Voice(() => look.character);
+// Phones (iOS Safari) only play sound from an audio element that first played during a tap, and the verdict line
+// starts after a network wait. So the voice reuses one element, unlocked with a silent clip on the first tap or key.
+const SILENT = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+class WebVoice extends Voice {
+  constructor(character) {
+    super(character);
+    this.el = new Audio();
+    this.el.preload = 'auto';
+    this.unlocked = false;
+  }
+
+  unlock() {
+    if (this.unlocked || this.audio) return;
+    this.unlocked = true;
+    this.el.src = SILENT;
+    this.el.play().catch(() => (this.unlocked = false));
+  }
+
+  next() {
+    const line = this.queue.shift();
+    if (!line) {
+      this.audio = null;
+      return;
+    }
+    const a = this.el;
+    const token = (this.token = {}); // an interrupted play() rejects later; only the current line may advance
+    this.audio = a;
+    const done = () => this.token === token && this.next();
+    a.onended = a.onerror = done;
+    a.src = `/Assets/voice/${this.character()}/${this.take(line)}.mp3`;
+    a.play().catch(done);
+  }
+}
+const voice = new WebVoice(() => look.character);
+for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => voice.unlock(), { capture: true });
 const say = (...lines) => voice.say(...lines);
 const sayNow = (...lines) => voice.interrupt(...lines);
 const VERDICT_LINES = { likely_synthetic: ['reveal', 'snark'], likely_real: ['real'], inconclusive: ['unsure'] };
@@ -171,7 +203,7 @@ function wand(on) {
 let mode = 'idle';
 let health = null; // GET /health, once
 const idleText = () => ({
-  title: `Drop a voice clip on me, or click me to pick one.`,
+  title: `Drop a voice clip on me, or choose one below.`,
   note: health?.mock
     ? 'Heads up: my detection model isn’t connected right now, so answers are demo data.'
     : 'I send it to our server to check, then it’s deleted.',
@@ -278,18 +310,18 @@ function pickFile() {
 
 $('file').addEventListener('change', () => check($('file').files[0]));
 
-// Click (or Enter / Space) on the character: sparkle where it was touched, then pick a file.
+// Click (or Enter / Space) on the character: sparkle where it was touched, then switch between 2D and 3D.
 const canvas = $('stage');
 canvas.addEventListener('click', (e) => {
   const r = canvas.getBoundingClientRect();
   presence.click(((e.clientX - r.left) / r.width) * STAGE_W, ((e.clientY - r.top) / r.height) * STAGE_H);
-  pickFile();
+  toggleStyle();
 });
 canvas.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   e.preventDefault();
   presence.click(STAGE_W / 2, STAGE_H / 3);
-  pickFile();
+  toggleStyle();
 });
 canvas.addEventListener('pointerenter', () => presence.hover(true));
 canvas.addEventListener('pointerleave', () => presence.hover(false));

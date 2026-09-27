@@ -137,6 +137,7 @@
   site in `web/` (Israel owns it; the upload web app goes there), `api.` is the API base. The sslip.io name keeps working (health check, old configs).
 - **Sun 01:30. Public website with an open file check (Israel, needs Akash's and David's OK):** hocuspocus.tech runs the
   wizard's file check in a browser (`web/`). A page can't hide a key, so the server has `POST /web/analyze` with no key,
-  no install id and no history, limited to 30 checks per client IP per hour (`WEB_CHECKS_PER_HOUR`); audio handling is
+  no install id and no history, limited per client IP per hour (`WEB_CHECKS_PER_HOUR`: code default 30, set to 300 on the server for the expo,
+  where many visitors share one venue IP); audio handling is
   the same as `/analyze` (memory/temp file, deleted, never sent to a third party). The site reuses the app's art, voice
   lines and sprite scripts through read-only mounts of `app/` instead of copies. Copy says "sent to our server". (israel/web-app)

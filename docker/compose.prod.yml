@@ -9,6 +9,8 @@ services:
       - path: /opt/dispel/.env
     environment:
       DATA_DIR: /var/lib/dispel
+      # Website checks per client IP per hour (POST /web/analyze). High for the expo: many visitors share one venue IP.
+      WEB_CHECKS_PER_HOUR: "300"
       # Stand-in detector while MODEL_DIR has no hearsay.json (server/app/hf_model.py). Weights are fetched once into
       # HF_HOME on the data volume; audio is scored here and never sent to Hugging Face.
       HF_MODEL: mo-thecreator/Deepfake-audio-detection

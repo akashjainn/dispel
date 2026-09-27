@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self'">
+  content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' data:; connect-src 'self'">
 <title>Hocus Pocus</title>
 <meta name="description" content="Drop a voice clip and the wizard tells you whether it's likely AI-generated. By Team Gemini at HackGT 13.">
 <meta name="theme-color" content="#1a1030">
@@ -20,7 +20,6 @@
 <a class="brand" href="/">Hocus&nbsp;Pocus</a>
 <nav class="looks" aria-label="Look">
   <button id="character" class="pbtn" type="button" aria-pressed="false">Turn into a witch</button>
-  <button id="style3d" class="pbtn" type="button" aria-pressed="false">Switch to 3D</button>
 </nav>
 
 <main>
@@ -38,7 +37,7 @@
         </div>
       </div>
       <canvas id="stage" class="stage" width="320" height="480" tabindex="0" role="button"
-        aria-label="The wizard. Click to choose an audio file, or drop one here."></canvas>
+        aria-label="The wizard. Click to switch between the 2D and 3D look."></canvas>
     </div>
     <input id="file" type="file" class="visually-hidden"
       accept=".wav,.mp3,.m4a,.aac,.flac,.ogg,.oga,.opus,.webm,.mp4,.mov,audio/*">
