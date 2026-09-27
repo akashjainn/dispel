@@ -1,5 +1,5 @@
 locals {
-  host = var.domain != "" ? var.domain : "${replace(vultr_instance.api.main_ip, ".", "-")}.sslip.io"
+  host = var.domain != "" ? "api.${var.domain}" : "${replace(vultr_instance.api.main_ip, ".", "-")}.sslip.io"
 }
 
 output "base_url" {
@@ -9,6 +9,11 @@ output "base_url" {
 
 output "ip" {
   value = vultr_instance.api.main_ip
+}
+
+output "nameservers" {
+  description = "Set these at the domain registrar so Vultr answers for var.domain"
+  value       = var.domain != "" ? ["ns1.vultr.com", "ns2.vultr.com"] : []
 }
 
 output "api_key" {

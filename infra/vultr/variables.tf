@@ -39,9 +39,9 @@ variable "git_ref" {
 }
 
 variable "domain" {
-  description = "Optional DNS name pointing at the instance. If empty, an sslip.io hostname is derived from the IP so TLS still works."
+  description = "Domain whose DNS zone Vultr hosts (dns.tf): apex, www and api point at the instance. Empty = no zone. The sslip.io hostname derived from the IP always works too."
   type        = string
-  default     = ""
+  default     = "hocuspocus.tech"
 }
 
 variable "device" {
