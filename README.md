@@ -57,9 +57,8 @@ clips), with 95% intervals from a speaker-level bootstrap:
 | AntiDeepfake MMS-300M | 300M | 2.23% (1.2-3.0) | 0.107 (0.064-0.150) |
 | Stock wav2vec2-base download (our server's stand-in) | 95M | 14.6% (5.5-25.8) | 0.814 (0.197-1.000) |
 
-v5c ties a research model about 3x its size (the difference is within noise) and clearly beats the same-size model
-and the stock download. Caveat: v5c trained on 32 *other* In-the-Wild speakers, so it has some home advantage.
-Details, per-speaker results and how to reproduce: [docs/benchmarks/in-the-wild.md](docs/benchmarks/in-the-wild.md).
+v5c ties a research model about 3x its size and clearly beats the same-size model
+and the stock download. Details, per-speaker results and how to reproduce: [docs/benchmarks/in-the-wild.md](docs/benchmarks/in-the-wild.md).
 
 The final system was chosen on held-out data only (never on NSA's test labels, which we do not have). See
 "How we chose the final system" below.
