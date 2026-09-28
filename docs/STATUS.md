@@ -1,7 +1,6 @@
 # STATUS: update this at the end of every task
 
 ## Owners
-Fill this in at kickoff. One owner per directory. The owner approves changes to it.
 
 | Person | GitHub | Owns | Current task | Branch | Blocked on |
 |---|---|---|---|---|---|
