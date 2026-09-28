@@ -6,6 +6,7 @@ serves the app's API (`server/`) and ships in the Docker image (`docker/`).
 
 - Contributors: start with [AGENTS.md](AGENTS.md), then [docs/STATUS.md](docs/STATUS.md).
 - How a clip is scored and how the model was trained, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- Head-to-head on the In-the-Wild benchmark against open-source detectors: [docs/benchmarks/in-the-wild.md](docs/benchmarks/in-the-wild.md).
 - API contract: [docs/INTERFACES.md](docs/INTERFACES.md). Every decision, dated: [docs/DECISIONS.md](docs/DECISIONS.md).
 - What NSA told us and what we inferred: [docs/CHALLENGE.md](docs/CHALLENGE.md). Model details: [ml/README.md](ml/README.md).
 
@@ -43,6 +44,22 @@ On our own held-out data (sources and generators excluded from training), pooled
 clips, the final network scores minDCF 0.157, EER 2.86% and AUC 0.9966, against 0.191 / 4.03% / 0.9934 for the interim
 network. NSA's test set turned out easier for v5c than our held-out mix (0.1027 vs 0.157), so our held-out numbers
 are conservative. The breakdown by generator family is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#held-out-results-for-the-shipped-network).
+
+### Benchmark: In-the-Wild
+
+On the standard real-world benchmark In-the-Wild, restricted to the 16 speakers no model of ours trained on (6,567
+clips), with 95% intervals from a speaker-level bootstrap:
+
+| Model | Size | EER | minDCF |
+|---|---|---|---|
+| **v5c (ours)** | 300M | **0.50%** (0.2-1.0) | **0.020** (0.004-0.044) |
+| AntiDeepfake XLS-R-1B (NII research model) | 1B | 0.67% (0.5-0.9) | 0.029 (0.014-0.040) |
+| AntiDeepfake MMS-300M | 300M | 2.23% (1.2-3.0) | 0.107 (0.064-0.150) |
+| Stock wav2vec2-base download (our server's stand-in) | 95M | 14.6% (5.5-25.8) | 0.814 (0.197-1.000) |
+
+v5c ties a research model about 3x its size (the difference is within noise) and clearly beats the same-size model
+and the stock download. Caveat: v5c trained on 32 *other* In-the-Wild speakers, so it has some home advantage.
+Details, per-speaker results and how to reproduce: [docs/benchmarks/in-the-wild.md](docs/benchmarks/in-the-wild.md).
 
 The final system was chosen on held-out data only (never on NSA's test labels, which we do not have). See
 "How we chose the final system" below.
